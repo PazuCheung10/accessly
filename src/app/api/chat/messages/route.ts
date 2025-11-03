@@ -35,10 +35,14 @@ export async function GET(request: Request) {
     }
 
     // Parse and validate pagination
-    const pagination = Pagination.safeParse({
-      cursor,
-      limit: limitParam ? parseInt(limitParam, 10) : undefined,
-    })
+    const paginationInput: any = {}
+    if (cursor) paginationInput.cursor = cursor
+    if (limitParam) {
+      const parsedLimit = parseInt(limitParam, 10)
+      if (!isNaN(parsedLimit)) paginationInput.limit = parsedLimit
+    }
+
+    const pagination = Pagination.safeParse(paginationInput)
 
     if (!pagination.success) {
       return Response.json({

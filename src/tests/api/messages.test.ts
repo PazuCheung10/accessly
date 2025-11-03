@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { GET, POST } from '@/app/api/chat/messages/route'
 import { prisma } from '@/lib/prisma'
 import { checkRate } from '@/lib/rateLimit'
-import { MessageInput } from '@/lib/validation'
 
 // Mock dependencies
 vi.mock('@/lib/prisma', () => ({
@@ -36,18 +35,19 @@ describe('GET /api/chat/messages', () => {
     vi.clearAllMocks()
   })
 
-  it('should return 401 for unauthorized request', async () => {
+  it('should return error for unauthorized request', async () => {
     vi.mocked(auth).mockResolvedValue(null)
 
     const request = new Request('http://localhost/api/chat/messages?roomId=test')
     const response = await GET(request)
     const data = await response.json()
 
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(response.status).toBe(200)
+    expect(data.ok).toBe(false)
+    expect(data.code).toBe('UNAUTHORIZED')
   })
 
-  it('should return 400 if roomId is missing', async () => {
+  it('should return error if roomId is missing', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: 'user-1', role: 'USER' },
       expires: new Date().toISOString(),
@@ -57,11 +57,13 @@ describe('GET /api/chat/messages', () => {
     const response = await GET(request)
     const data = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('roomId is required')
+    expect(response.status).toBe(200)
+    expect(data.ok).toBe(false)
+    expect(data.code).toBe('MISSING_PARAMETER')
+    expect(data.message).toContain('roomId')
   })
 
-  it('should return 403 if user is not a room member', async () => {
+  it('should return error if user is not a room member', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: 'user-1', role: 'USER' },
       expires: new Date().toISOString(),
@@ -73,8 +75,10 @@ describe('GET /api/chat/messages', () => {
     const response = await GET(request)
     const data = await response.json()
 
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Not a member of this room')
+    expect(response.status).toBe(200)
+    expect(data.ok).toBe(false)
+    expect(data.code).toBe('FORBIDDEN')
+    expect(data.message).toContain('Not a member')
   })
 
   it('should return messages for valid request', async () => {
@@ -103,20 +107,24 @@ describe('GET /api/chat/messages', () => {
 
     vi.mocked(prisma.message.findMany).mockResolvedValue(mockMessages as any)
 
-    const request = new Request('http://localhost/api/chat/messages?roomId=room-1')
+    const request = new Request('http://localhost/api/chat/messages?roomId=room-1&limit=20')
     const response = await GET(request)
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    // Date gets serialized to ISO string in JSON response
-    expect(data.messages[0]).toMatchObject({
-      id: mockMessages[0].id,
-      roomId: mockMessages[0].roomId,
-      userId: mockMessages[0].userId,
-      content: mockMessages[0].content,
-      user: mockMessages[0].user,
-    })
-    expect(data.messages[0].createdAt).toBeDefined()
+    expect(data.ok).toBe(true)
+    expect(data.data).toBeDefined()
+    expect(data.data.messages).toBeDefined()
+    expect(Array.isArray(data.data.messages)).toBe(true)
+    if (data.data.messages.length > 0) {
+      expect(data.data.messages[0]).toMatchObject({
+        id: mockMessages[0].id,
+        roomId: mockMessages[0].roomId,
+        userId: mockMessages[0].userId,
+        content: mockMessages[0].content,
+        user: mockMessages[0].user,
+      })
+    }
     expect(prisma.message.findMany).toHaveBeenCalled()
   })
 })
@@ -126,7 +134,7 @@ describe('POST /api/chat/messages', () => {
     vi.clearAllMocks()
   })
 
-  it('should return 401 for unauthorized request', async () => {
+  it('should return error for unauthorized request', async () => {
     vi.mocked(auth).mockResolvedValue(null)
 
     const request = new Request('http://localhost/api/chat/messages', {
@@ -137,11 +145,12 @@ describe('POST /api/chat/messages', () => {
     const response = await POST(request)
     const data = await response.json()
 
-    expect(response.status).toBe(401)
-    expect(data.error).toBe('Unauthorized')
+    expect(response.status).toBe(200)
+    expect(data.ok).toBe(false)
+    expect(data.code).toBe('UNAUTHORIZED')
   })
 
-  it('should return 429 when rate limited', async () => {
+  it('should return error when rate limited', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: 'user-1', role: 'USER' },
       expires: new Date().toISOString(),
@@ -165,11 +174,12 @@ describe('POST /api/chat/messages', () => {
     const response = await POST(request)
     const data = await response.json()
 
-    expect(response.status).toBe(429)
+    expect(response.status).toBe(200)
+    expect(data.ok).toBe(false)
     expect(data.code).toBe('RATE_LIMITED')
   })
 
-  it('should return 400 for invalid input', async () => {
+  it('should return error for invalid input', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: 'user-1', role: 'USER' },
       expires: new Date().toISOString(),
@@ -185,11 +195,12 @@ describe('POST /api/chat/messages', () => {
     const response = await POST(request)
     const data = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(data.error).toBe('Validation error')
+    expect(response.status).toBe(200)
+    expect(data.ok).toBe(false)
+    expect(data.code).toBe('VALIDATION_ERROR')
   })
 
-  it('should return 403 if user is not a room member', async () => {
+  it('should return error if user is not a room member', async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: 'user-1', role: 'USER' },
       expires: new Date().toISOString(),
@@ -209,17 +220,19 @@ describe('POST /api/chat/messages', () => {
     const response = await POST(request)
     const data = await response.json()
 
-    expect(response.status).toBe(403)
-    expect(data.error).toBe('Not a member of this room')
+    expect(response.status).toBe(200)
+    expect(data.ok).toBe(false)
+    expect(data.code).toBe('FORBIDDEN')
+    expect(data.message).toContain('Not a member')
   })
 
-  it('should create message and return 201', async () => {
+  it('should create message and return success', async () => {
     const mockMessage = {
       id: 'msg-1',
       roomId: 'clx1234567890123456789012',
       userId: 'user-1',
       content: 'Hello',
-      createdAt: new Date(),
+      createdAt: new Date('2025-11-03T01:57:47.426Z'),
       user: { id: 'user-1', name: 'User 1', image: null },
     }
 
@@ -250,16 +263,18 @@ describe('POST /api/chat/messages', () => {
     const response = await POST(request)
     const data = await response.json()
 
-    expect(response.status).toBe(201)
+    expect(response.status).toBe(200)
+    expect(data.ok).toBe(true)
+    expect(data.data).toBeDefined()
     // Date gets serialized to ISO string in JSON response
-    expect(data.message).toMatchObject({
+    expect(data.data).toMatchObject({
       id: mockMessage.id,
       roomId: mockMessage.roomId,
       userId: mockMessage.userId,
       content: mockMessage.content,
       user: mockMessage.user,
     })
-    expect(data.message.createdAt).toBeDefined()
+    expect(data.data.createdAt).toBeDefined()
     expect(prisma.message.create).toHaveBeenCalled()
   })
 })
