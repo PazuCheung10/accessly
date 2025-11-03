@@ -36,23 +36,16 @@ function findAuthCoreVersions() {
   return versions
 }
 
-// Check via import.meta.resolve (ESM) or createRequire fallback
-let resolvedPath
+// Check primary installation path directly
+const primaryPath = join(projectRoot, 'node_modules', '@auth', 'core', 'package.json')
 try {
-  // Try ESM resolve first
-  if (typeof import.meta.resolve === 'function') {
-    resolvedPath = import.meta.resolve('@auth/core/package.json')
-  } else {
-    // Fallback: construct path manually
-    resolvedPath = join(projectRoot, 'node_modules', '@auth', 'core', 'package.json')
+  if (!existsSync(primaryPath)) {
+    throw new Error(`Path not found: ${primaryPath}`)
   }
-  if (!existsSync(resolvedPath)) {
-    throw new Error(`Path not found: ${resolvedPath}`)
-  }
-  const pkg = JSON.parse(readFileSync(resolvedPath, 'utf-8'))
-  console.log(`✓ Resolved @auth/core: ${pkg.version} at ${resolvedPath}`)
+  const pkg = JSON.parse(readFileSync(primaryPath, 'utf-8'))
+  console.log(`✓ Primary @auth/core: ${pkg.version} at ${primaryPath}`)
 } catch (err) {
-  console.error('✗ Could not resolve @auth/core:', err.message)
+  console.error('✗ Could not find primary @auth/core:', err.message)
   process.exit(1)
 }
 
