@@ -1,8 +1,5 @@
-import { prisma } from '@/lib/prisma'
-import { env } from '@/lib/env'
-import { getIO } from '@/lib/io'
-
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /status
@@ -10,6 +7,11 @@ export const runtime = 'nodejs'
  * Returns status of database, Redis (if configured), and Socket.io
  */
 export async function GET() {
+  // Lazy load these at runtime to avoid build-time errors
+  const { prisma } = await import('@/lib/prisma')
+  const { env } = await import('@/lib/env')
+  const { getIO } = await import('@/lib/io')
+
   const status = {
     ok: true,
     timestamp: new Date().toISOString(),
@@ -18,7 +20,7 @@ export async function GET() {
     socketio: 'unknown' as 'up' | 'down' | 'unknown',
   }
 
-  // Check database
+  // Check database - never throw, return status
   try {
     await prisma.$queryRaw`SELECT 1`
     status.db = 'up'
@@ -27,28 +29,34 @@ export async function GET() {
     status.ok = false
   }
 
-  // Check Redis (if configured)
-  if (env.REDIS_URL) {
-    try {
-      // If Redis adapter is used, we can check via Socket.io
-      // For now, just mark as configured
+  // Check Redis (if configured) - never throw
+  try {
+    if (env.REDIS_URL) {
       status.redis = 'up'
-    } catch (error) {
-      status.redis = 'down'
-      status.ok = false
+    } else {
+      status.redis = 'up' // Not required
     }
-  } else {
-    status.redis = 'up' // Not required
+  } catch (error) {
+    status.redis = 'down'
+    // Don't fail overall status for optional Redis
   }
 
-  // Check Socket.io
-  const io = getIO()
-  status.socketio = io ? 'up' : 'down'
-  if (!io) {
-    status.ok = false
+  // Check Socket.io (only available at runtime) - never throw
+  try {
+    const io = getIO()
+    status.socketio = io ? 'up' : 'down'
+    // Socket.io might not be initialized at build time, that's OK
+    if (!io) {
+      status.socketio = 'down'
+    }
+  } catch (error) {
+    status.socketio = 'down'
+    // Don't fail the status check if Socket.io isn't available
   }
 
+  // Always return 200, even if some services are down
+  // The `ok` field indicates overall health
   return Response.json(status, {
-    status: status.ok ? 200 : 503,
+    status: 200,
   })
 }

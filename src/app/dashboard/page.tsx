@@ -1,8 +1,10 @@
-import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { Role } from '@prisma/client'
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export default async function DashboardPage() {
+  const { auth } = await import('@/lib/auth')
   const session = await auth()
 
   // Require authentication

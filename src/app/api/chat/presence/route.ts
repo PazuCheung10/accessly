@@ -1,7 +1,5 @@
-import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/chat/presence
@@ -10,6 +8,10 @@ export const runtime = 'nodejs'
  * but this endpoint can be used as a heartbeat/fallback
  */
 export async function POST(request: Request) {
+  // Lazy load server-only dependencies at runtime
+  const { auth } = await import('@/lib/auth')
+  const { prisma } = await import('@/lib/prisma')
+  
   try {
     const session = await auth()
     if (!session?.user) {

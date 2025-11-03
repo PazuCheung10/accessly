@@ -1,9 +1,13 @@
-import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { assertRole } from '@/lib/rbac'
 import { Role } from '@prisma/client'
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export default async function AdminPage() {
+  const { auth } = await import('@/lib/auth')
+  const { assertRole } = await import('@/lib/rbac')
+  
   const session = await auth()
 
   // Require authentication

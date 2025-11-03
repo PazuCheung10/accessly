@@ -1,9 +1,7 @@
-import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { assertRole } from '@/lib/rbac'
 import { Role } from '@prisma/client'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/users
@@ -11,6 +9,11 @@ export const runtime = 'nodejs'
  * Requires ADMIN role via assertRole
  */
 export async function GET(request: Request) {
+  // Lazy load server-only dependencies at runtime
+  const { auth } = await import('@/lib/auth')
+  const { prisma } = await import('@/lib/prisma')
+  const { assertRole } = await import('@/lib/rbac')
+  
   try {
     const session = await auth()
     if (!session?.user) {

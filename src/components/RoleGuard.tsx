@@ -31,7 +31,7 @@ export function RoleGuard({
   }
 
   // Check if user has the required role
-  const canAccess = hasRole(session, role)
+  const canAccess = session ? hasRole(session, role) : false
 
   if (!canAccess) {
     return <>{fallback}</>

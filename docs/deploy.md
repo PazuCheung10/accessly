@@ -20,6 +20,10 @@ Use platforms that support long-lived processes:
 2. Redis (optional, for horizontal scaling)
 3. Environment variables configured
 
+## Build Notes
+
+**@auth/core Version Pinning**: We pin `@auth/core` to `0.41.1` via pnpm overrides to avoid mixed versions in serverless/container builds when `next-auth` and `@auth/prisma-adapter` require different versions. This prevents type conflicts during Docker builds.
+
 ## Environment Variables
 
 Required:

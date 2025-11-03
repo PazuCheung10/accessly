@@ -1,16 +1,17 @@
-import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { MessageInput, Pagination } from '@/lib/validation'
-import { checkRate as rateLimitCheck } from '@/lib/rateLimit'
-import { getIO } from '@/lib/io'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/chat/messages
  * List messages by roomId with cursor-based pagination
  */
 export async function GET(request: Request) {
+  // Lazy load server-only dependencies at runtime
+  const { auth } = await import('@/lib/auth')
+  const { prisma } = await import('@/lib/prisma')
+  
   try {
     const session = await auth()
     if (!session?.user) {
@@ -125,6 +126,12 @@ export async function GET(request: Request) {
  * Create a new message with validation, rate limiting, and persistence
  */
 export async function POST(request: Request) {
+  // Lazy load server-only dependencies at runtime
+  const { auth } = await import('@/lib/auth')
+  const { prisma } = await import('@/lib/prisma')
+  const { checkRate as rateLimitCheck } = await import('@/lib/rateLimit')
+  const { getIO } = await import('@/lib/io')
+  
   try {
     const session = await auth()
     if (!session?.user) {
