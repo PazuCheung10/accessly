@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: accessly-db
+    environment:
+      POSTGRES_USER: accessly
+      POSTGRES_PASSWORD: accessly_dev_password
+      POSTGRES_DB: accessly
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U accessly']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis (optional, for Socket.io horizontal scaling)
+  redis:
+    image: redis:7-alpine
+    container_name: accessly-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Next.js Application with Socket.io
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: accessly-app
+    ports:
+      - '3000:3000'
+    environment:
+      - DATABASE_URL=postgresql://accessly:accessly_dev_password@db:5432/accessly
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - AUTH_SECRET=${AUTH_SECRET:-change-me-in-production}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      # Add your auth provider keys here or use .env file
+      - GITHUB_ID=${GITHUB_ID:-}
+      - GITHUB_SECRET=${GITHUB_SECRET:-}
+      - EMAIL_SERVER=${EMAIL_SERVER:-}
+      - EMAIL_FROM=${EMAIL_FROM:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount .env file if you have one (optional)
+      - ./.env:/app/.env:ro
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:3000/status']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

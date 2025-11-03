@@ -24,8 +24,8 @@ vi.mock('@/lib/rateLimit', () => ({
   checkRate: vi.fn(),
 }))
 
-vi.mock('@/lib/socket-server', () => ({
-  getSocketIO: vi.fn(() => null),
+vi.mock('@/lib/io', () => ({
+  getIO: vi.fn(() => null),
 }))
 
 const { auth } = await import('@/lib/auth')

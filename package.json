@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:server": "tsx server/index.ts",
     "build": "next build",
-    "start": "next start",
+    "start": "tsx server/index.ts",
     "lint": "next lint",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
     "db:seed": "tsx src/data/seed.ts"
   },
   "dependencies": {
@@ -24,6 +26,8 @@
     "react-dom": "^18.3.1",
     "socket.io": "^4.7.2",
     "socket.io-client": "^4.7.2",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "ioredis": "^5.3.2",
     "zod": "^3.22.4"
   },
   "devDependencies": {

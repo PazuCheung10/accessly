@@ -19,6 +19,10 @@ const envSchema = z.object({
   // Socket.io Redis adapter (optional, for production scaling)
   REDIS_URL: z.string().url().optional(),
 
+  // Server configuration
+  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  HOST: z.string().default('0.0.0.0'),
+
   // App (optional, public)
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
 
@@ -39,6 +43,8 @@ function getEnv() {
     EMAIL_SERVER: process.env.EMAIL_SERVER,
     EMAIL_FROM: process.env.EMAIL_FROM,
     REDIS_URL: process.env.REDIS_URL,
+    PORT: process.env.PORT,
+    HOST: process.env.HOST,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NODE_ENV: process.env.NODE_ENV,
   })

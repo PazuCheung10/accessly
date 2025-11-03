@@ -4,6 +4,16 @@ Secure, role-based login → realtime chat → SSR dashboard data.
 
 Built with Next.js 15, TypeScript, Tailwind CSS, NextAuth, Prisma, and Socket.io.
 
+## Architecture
+
+**Next.js is a full-stack framework** - it combines frontend and backend in one application:
+
+- **Frontend**: `src/app/` (pages/components) - React components, runs in browser
+- **Backend**: `src/app/api/` (route handlers) - API endpoints, runs on Node.js server
+- **Single Process**: One Next.js server handles both (runs on port 3000)
+
+See [ARCHITECTURE_EXPLAINED.md](./ARCHITECTURE_EXPLAINED.md) for details.
+
 ## Features
 
 - **Authentication**: NextAuth with GitHub OAuth and Email providers
@@ -92,17 +102,66 @@ pnpm test:watch
 pnpm test:ui
 ```
 
+## Docker Support
+
+### Quick Start with Docker Compose
+
+```bash
+# Start all services (PostgreSQL, Redis, Next.js app)
+docker-compose up -d
+
+# Run migrations
+docker-compose exec app pnpm prisma migrate deploy
+
+# Seed database
+docker-compose exec app pnpm db:seed
+
+# View logs
+docker-compose logs -f app
+```
+
+### Docker Services
+
+- **app**: Next.js application (port 3000)
+- **postgres**: PostgreSQL database (port 5432)
+- **redis**: Redis for Socket.io scaling (port 6379)
+
+### Manual Docker Build
+
+```bash
+# Build image
+docker build -t accessly .
+
+# Run container
+docker run -p 3000:3000 \
+  -e DATABASE_URL="postgresql://..." \
+  -e AUTH_SECRET="..." \
+  accessly
+```
+
+## Deployment
+
+### Option 1: Vercel (Recommended)
+- Connect your GitHub repo to Vercel
+- Auto-detects Next.js
+- Handles API routes automatically
+- Free tier available
+
+### Option 2: Docker (Self-Hosting)
+- Use provided `Dockerfile` and `docker-compose.yml`
+- Deploy to any Docker host (AWS ECS, DigitalOcean, etc.)
+
 ## Project Structure
 
 ```
 src/
 ├── app/              # Next.js App Router pages and API routes
-│   ├── api/          # API route handlers
+│   ├── api/          # Backend API route handlers
 │   ├── (auth)/       # Auth routes (sign-in, error)
 │   ├── dashboard/    # SSR dashboard
 │   ├── admin/        # Admin panel
-│   └── chat/         # Chat interface
-├── components/       # React components
+│   └── chat/         # Chat interface (frontend)
+├── components/       # React components (frontend)
 ├── lib/              # Utilities (auth, validation, RBAC, etc.)
 ├── data/             # Seed scripts
 ├── tests/            # Test files

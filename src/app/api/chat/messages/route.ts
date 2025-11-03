@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { MessageInput, Pagination } from '@/lib/validation'
 import { checkRate as rateLimitCheck } from '@/lib/rateLimit'
-import { getSocketIO } from '@/lib/socket-server'
+import { getIO } from '@/lib/io'
 
 export const runtime = 'nodejs'
 
@@ -199,7 +199,7 @@ export async function POST(request: Request) {
     })
 
     // Emit Socket.io event to room
-    const io = getSocketIO()
+    const io = getIO()
     if (io) {
       io.to(validated.data.roomId).emit('message:new', {
         id: message.id,

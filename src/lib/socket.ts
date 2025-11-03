@@ -18,8 +18,8 @@ export function initSocket(userId: string): Socket {
     return socket
   }
 
-  socket = io(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000', {
-    path: '/api/socket',
+  socket = io(window.location.origin, {
+    path: '/socket.io',
     transports: ['websocket', 'polling'],
     autoConnect: true,
   })
