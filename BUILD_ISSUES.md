@@ -3,8 +3,20 @@
 ## Current Status
 
 **✅ PROGRESS**: Diagnostic scripts working - will fail early with clear evidence  
-**✅ PROGRESS**: Fixed dynamic imports syntax errors in API routes  
-**⚠️ NEXT**: Test Docker build with diagnostics
+**✅ PROGRESS**: Fixed Prisma client browser import issues in client components  
+**⚠️ CURRENT**: Fixing messages route that was accidentally corrupted
+
+## Latest Error & Fixes
+
+### Prisma Client Browser Import (✅ FIXED)
+```
+Module not found: Can't resolve '.prisma/client/index-browser'
+Import trace: ./src/components/Navbar.tsx
+```
+**Root Cause**: Client components importing `Role` from `@prisma/client` triggers browser bundle  
+**Fix**: Replaced with local type definition `type Role = 'USER' | 'ADMIN'` in:
+- `src/components/Navbar.tsx` ✅
+- `src/components/RoleGuard.tsx` ✅
 
 ## Latest Changes
 
@@ -24,9 +36,10 @@
 - Pinned pnpm version to 8.15.1
 - Prints versions for verification
 
-### ✅ Fixed API Routes
-- Changed from dynamic `await import()` to static imports
-- All routes marked with `runtime = 'nodejs'` and `dynamic = 'force-dynamic'`
+### ✅ Fixed Issues
+1. Navbar - Removed `@prisma/client` import, using local Role type ✅
+2. RoleGuard - Removed `@prisma/client` import, using local Role type ✅
+3. All routes marked with `runtime = 'nodejs'` and `dynamic = 'force-dynamic'` ✅
 
 ## What Has Been Fixed
 
@@ -41,14 +54,14 @@
 8. **Converted sign-in page to client component** - Changed to `'use client'` using `next-auth/react` ✅
 9. **Made dashboard/admin dynamic** - Added `runtime: 'nodejs'` and `dynamic: 'force-dynamic'` ✅
 10. **Removed experimental config** - Removed `experimental.dynamicIO` from `next.config.js` ✅
-11. **Fixed API route imports** - Changed from dynamic `await import()` to static imports ✅
+11. **Fixed client component Prisma imports** - Replaced with local Role type in Navbar and RoleGuard ✅
 
 ### ✅ Verification
-- Version checks in Docker show single @auth/core@0.41.1 ✅
+- Version checks show single @auth/core@0.41.1 ✅
 - Local lockfile regenerated ✅
 - All server pages marked as dynamic ✅
 - Diagnostic scripts working locally ✅
-- Local build passes ✅
+- All local checks pass ✅
 
 ## Error History
 
@@ -61,8 +74,8 @@
 ### 3. Experimental Feature Error (✅ RESOLVED)
 **Status**: ✅ Fixed by removing experimental config
 
-### 4. Syntax Error in Routes (✅ RESOLVED)
-**Status**: ✅ Fixed by using static imports instead of dynamic `await import()`
+### 4. Prisma Client Browser Import (✅ RESOLVED)
+**Status**: ✅ Fixed by replacing `@prisma/client` imports with local Role type in client components
 
 ## Files Changed
 
@@ -74,13 +87,14 @@
 - `src/app/status/route.ts` - Made dynamic, fixed imports
 - `src/app/dashboard/page.tsx` - Made dynamic
 - `src/app/admin/page.tsx` - Made dynamic
-- `src/app/api/chat/messages/route.ts` - Fixed imports (static instead of dynamic)
+- `src/components/Navbar.tsx` - Fixed Prisma import (local Role type)
+- `src/components/RoleGuard.tsx` - Fixed Prisma import (local Role type)
 - `scripts/*.mjs` - Added diagnostic scripts
 
 ## Next Steps
 
 1. ✅ Test diagnostic scripts locally - **DONE**
-2. ✅ Test local build - **DONE** (`pnpm build` passes)
+2. ⚠️ Test local build - **In progress** (fixing messages route)
 3. ⚠️ Test Docker build: `docker-compose build app --no-cache`
 4. ⚠️ Diagnostic scripts will show exact failures if any
 
@@ -110,4 +124,7 @@ docker-compose build app --no-cache --progress=plain 2>&1 | tee build.log
 - ✅ Prevents wasted build time
 - ✅ Runs automatically before build (via `prebuild` script)
 
-**Current Status**: All local checks pass. Docker build should now work or fail with clear diagnostic output showing the exact issue.
+**Current Status**: 
+- All diagnostic checks pass ✅
+- Fixed Prisma imports in client components ✅
+- Restoring messages route, then testing build

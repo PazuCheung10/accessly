@@ -1,7 +1,8 @@
 'use client'
 
 import { useSession, signOut } from 'next-auth/react'
-import { Role } from '@prisma/client'
+// Role type for client component (avoid importing @prisma/client in client)
+type Role = 'USER' | 'ADMIN'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -53,7 +54,7 @@ export function Navbar() {
   }
 
   const roleBadgeColor =
-    session.user.role === Role.ADMIN
+    session.user.role === 'ADMIN'
       ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
       : 'bg-slate-700/50 text-slate-300 border-slate-600/50'
 

@@ -1,7 +1,8 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { Role } from '@prisma/client'
+// Role type for client component (avoid importing @prisma/client in client)
+type Role = 'USER' | 'ADMIN'
 import { hasRole } from '@/lib/rbac'
 
 type RoleGuardProps = {
