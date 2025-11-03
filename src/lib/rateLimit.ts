@@ -23,7 +23,8 @@ interface RateLimitEntry {
 }
 
 // In-memory store: key -> array of request timestamps
-const rateLimitStore = new Map<string, RateLimitEntry>()
+// Exported for testing purposes
+export const rateLimitStore = new Map<string, RateLimitEntry>()
 
 // Configuration
 const WINDOW_MS = 60 * 1000 // 1 minute

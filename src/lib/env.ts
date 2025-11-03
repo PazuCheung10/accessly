@@ -16,12 +16,8 @@ const envSchema = z.object({
   EMAIL_SERVER: z.string().optional(),
   EMAIL_FROM: z.string().email().optional(),
 
-  // Socket.io Redis adapter (optional)
+  // Socket.io Redis adapter (optional, for production scaling)
   REDIS_URL: z.string().url().optional(),
-
-  // Supabase (optional, public)
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
 
   // App (optional, public)
   NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
@@ -43,8 +39,6 @@ function getEnv() {
     EMAIL_SERVER: process.env.EMAIL_SERVER,
     EMAIL_FROM: process.env.EMAIL_FROM,
     REDIS_URL: process.env.REDIS_URL,
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NODE_ENV: process.env.NODE_ENV,
   })
