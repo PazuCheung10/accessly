@@ -17,7 +17,6 @@
     "check:ssg": "node scripts/assert-ssg-safe.mjs",
     "prisma:gen": "prisma generate --schema=src/prisma/schema.prisma",
     "prebuild": "pnpm prisma:gen && pnpm check:core && pnpm check:client-imports && pnpm check:ssg",
-    "postinstall": "pnpm prisma:gen",
     "prisma:generate": "prisma generate --schema=src/prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
