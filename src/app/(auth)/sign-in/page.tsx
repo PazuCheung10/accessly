@@ -1,12 +1,13 @@
 import { signIn } from '@/lib/auth'
+import { env } from '@/lib/env'
 
 export default async function SignInPage({
   searchParams,
 }: {
   searchParams: { callbackUrl?: string; error?: string }
 }) {
-  const hasGitHub = !!process.env.GITHUB_ID && !!process.env.GITHUB_SECRET
-  const hasEmail = !!process.env.EMAIL_SERVER && !!process.env.EMAIL_FROM
+  const hasGitHub = !!env.GITHUB_ID && !!env.GITHUB_SECRET
+  const hasEmail = !!env.EMAIL_SERVER && !!env.EMAIL_FROM
 
   if (!hasGitHub && !hasEmail) {
     return (
