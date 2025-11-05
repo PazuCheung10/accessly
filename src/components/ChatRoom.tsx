@@ -40,6 +40,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
   const currentRoomIdRef = useRef<string>(roomId)
   const prevRoomIdRef = useRef(roomId)
   const inputRef = useRef<string>(input)
+  const [isRestoringScroll, setIsRestoringScroll] = useState(false)
 
   // Keep inputRef in sync with input state
   useEffect(() => {
@@ -92,7 +93,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     }
   }, [roomId, setRoom])
 
-  // 3) Restore scroll after the new list exists (double rAF) and with tight deps
+  // 3) Restore scroll synchronously (before paint) for cached messages
   useLayoutEffect(() => {
     const el = messagesContainerRef.current
     if (!el) return
@@ -103,22 +104,43 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       // 1) ensure messages render instead of loader
       setIsLoadingMessages(false)
 
-      // 2) wait for them to paint (double rAF)
-      requestAnimationFrame(() => {
+      // 2) For cached messages with saved scroll position, hide container until scroll is set
+      if (room.scrollTop != null && room.scrollTop > 0) {
+        // Hide container to prevent flash
+        setIsRestoringScroll(true)
+        
+        // Set scroll synchronously in useLayoutEffect (before paint)
+        el.scrollTop = room.scrollTop
+        
+        // Use double rAF to ensure layout is complete, then show container
         requestAnimationFrame(() => {
-          if (!messagesContainerRef.current) return
-          const box = messagesContainerRef.current
-          if (room.scrollTop != null) {
-            box.scrollTop = room.scrollTop
-          } else {
-            // first visit to this room → jump to bottom
-            box.scrollTop = box.scrollHeight
-          }
-          hasInitialisedRef.current = true
+          requestAnimationFrame(() => {
+            if (messagesContainerRef.current) {
+              // Ensure scroll position is correct
+              if (messagesContainerRef.current.scrollTop !== room.scrollTop) {
+                messagesContainerRef.current.scrollTop = room.scrollTop!
+              }
+              // Now show the container (no flash!)
+              setIsRestoringScroll(false)
+              hasInitialisedRef.current = true
+            }
+          })
         })
-      })
+      } else {
+        // First visit to this room → wait for DOM to paint, then jump to bottom
+        setIsRestoringScroll(false) // Show immediately for first visit
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (!messagesContainerRef.current) return
+            const box = messagesContainerRef.current
+            box.scrollTop = box.scrollHeight
+            hasInitialisedRef.current = true
+          })
+        })
+      }
     } else {
       setIsLoadingMessages(true)
+      setIsRestoringScroll(false)
     }
     // Watch exactly the pieces that matter for restoration
   }, [roomId, room?.messages?.length, room?.scrollTop])
@@ -384,7 +406,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0"
+        className={`flex-1 overflow-y-auto p-6 space-y-4 min-h-0 ${isRestoringScroll ? 'invisible' : ''}`}
         role="log"
         aria-live="polite"
         aria-label="Chat messages"
