@@ -41,6 +41,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
   const prevRoomIdRef = useRef(roomId)
   const inputRef = useRef<string>(input)
   const [isLoadingOlder, setIsLoadingOlder] = useState(false) // For pagination indicator
+  const isRestoringScrollRef = useRef(false) // Track if we're restoring scroll
 
   // Keep inputRef in sync with input state
   useEffect(() => {
@@ -112,34 +113,58 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       // 1) Render cached messages immediately (no loader, even if empty)
       setIsLoadingMessages(false)
 
-      // 2) Restore scroll after paint using double rAF (container stays visible)
-      if (room.messages?.length && room.scrollTop != null && room.scrollTop > 0) {
-        // Restore exact position after commit and paint
+      // 2) Restore scroll position (synchronously BEFORE paint to prevent flash)
+      // Check if we have a saved scroll position (including 0 for empty rooms)
+      const hasSavedScroll = room.scrollTop !== null && room.scrollTop !== undefined
+      
+      if (hasSavedScroll) {
+        // We have a saved scroll position (even if 0 for empty room)
+        // Hide container during restore to prevent flash
+        isRestoringScrollRef.current = true
+        el.style.visibility = 'hidden'
+        
+        // Force a reflow to ensure layout is calculated
+        void el.offsetHeight
+        
+        // Set scroll immediately (synchronously) - 0 is valid for empty rooms
+        el.scrollTop = room.scrollTop!
+        
+        // Show container after scroll is set (double rAF to ensure layout is complete)
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             if (messagesContainerRef.current) {
-              // Set scrollTop instantly (no animation, scrollBehavior: auto ensures this)
-              messagesContainerRef.current.scrollTop = room.scrollTop!
+              // Ensure scroll position is correct
+              const savedScroll = room.scrollTop!
+              if (messagesContainerRef.current.scrollTop !== savedScroll) {
+                messagesContainerRef.current.scrollTop = savedScroll
+              }
+              // Show container (no flash - scroll is already set)
+              messagesContainerRef.current.style.visibility = 'visible'
+              isRestoringScrollRef.current = false
               hasInitialisedRef.current = true
             }
           })
         })
       } else {
-        // First visit to this room or empty room → snap to bottom instantly (or stay at top if empty)
-        requestAnimationFrame(() => {
+        // First visit to this room (no saved scroll position)
+        if (room.messages?.length) {
+          // Has messages → wait for DOM, then snap to bottom
           requestAnimationFrame(() => {
-            if (!messagesContainerRef.current) return
-            const box = messagesContainerRef.current
-            // Only scroll to bottom if there are messages
-            if (room.messages?.length) {
+            requestAnimationFrame(() => {
+              if (!messagesContainerRef.current) return
+              const box = messagesContainerRef.current
               box.scrollTop = box.scrollHeight
-            } else {
-              // Empty room - keep at top (or set to 0)
-              box.scrollTop = 0
-            }
-            hasInitialisedRef.current = true
+              // Save scroll position after setting
+              setRoom(roomId, { scrollTop: box.scrollTop })
+              hasInitialisedRef.current = true
+            })
           })
-        })
+        } else {
+          // Empty room - set to top immediately and save to cache
+          el.scrollTop = 0
+          setRoom(roomId, { scrollTop: 0 }) // Save scrollTop = 0 for empty room
+          hasInitialisedRef.current = true
+        }
       }
     } else {
       // No cache → show loader on first visit only
@@ -265,11 +290,12 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
 
   // 4.8 First-time fetch (latest page) → render → jump to bottom (no animation)
   const fetchInitial = async () => {
+    let msgs: Msg[] = []
     try {
       setIsLoadingMessages(true)
       const res = await fetch(`/api/chat/messages?roomId=${roomId}&limit=50`)
       const json = await res.json()
-      const msgs: Msg[] = (json.data?.messages ?? json.messages ?? []).filter((m: Msg) => m.user?.id)
+      msgs = (json.data?.messages ?? json.messages ?? []).filter((m: Msg) => m.user?.id)
 
       // Store messages (even if empty); also set cursor & lastMessageId
       const oldest = msgs[0]?.id ?? null
@@ -285,18 +311,26 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     } finally {
       setIsLoadingMessages(false)
 
-      // Now that they've rendered, snap to bottom instantly
+      // Now that they've rendered, snap to bottom instantly (or top for empty room)
       const el = messagesContainerRef.current
       if (el) {
-        scrollToBottom(el) // immediate (no smooth)
+        if (msgs.length > 0) {
+          scrollToBottom(el) // immediate (no smooth)
+        } else {
+          // Empty room - set to top
+          el.scrollTop = 0
+        }
+        // Save scroll position (even if 0 for empty room) so we can restore it later
         setRoom(roomId, { scrollTop: el.scrollTop })
       }
 
       hasInitialisedRef.current = true
       onMessagesLoaded?.()
 
-      // Optional: immediately poll for any very-new messages
-      void fetchNewerAfter()
+      // Optional: immediately poll for any very-new messages (only if we have messages)
+      if (msgs.length > 0) {
+        void fetchNewerAfter()
+      }
     }
   }
 
