@@ -98,6 +98,13 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     const el = messagesContainerRef.current
     if (!el) return
 
+    // Only restore scroll when roomId changes, not on every scrollTop update
+    const shouldRestore = prevRoomIdRef.current !== roomId
+    if (!shouldRestore) {
+      // Room hasn't changed, don't restore
+      return
+    }
+
     hasInitialisedRef.current = false
 
     if (room?.messages?.length) {
@@ -142,8 +149,8 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       setIsLoadingMessages(true)
       setIsRestoringScroll(false)
     }
-    // Watch exactly the pieces that matter for restoration
-  }, [roomId, room?.messages?.length, room?.scrollTop])
+    // Watch only roomId and messages length, NOT scrollTop (to avoid re-running on scroll)
+  }, [roomId, room?.messages?.length])
 
   // 4.3 Initial fetch if needed
   useEffect(() => {
