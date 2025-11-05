@@ -23,6 +23,7 @@ export default function ChatPage() {
   const [myRooms, setMyRooms] = useState<Room[]>([])
   const [availableRooms, setAvailableRooms] = useState<Room[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSwitchingRoom, setIsSwitchingRoom] = useState(false)
   const [showRoomSelector, setShowRoomSelector] = useState(false)
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export default function ChatPage() {
     }
   }, [status, router])
 
+  // Fetch rooms only once on mount (not when roomId changes)
   useEffect(() => {
     const fetchRooms = async () => {
       try {
@@ -40,13 +42,17 @@ export default function ChatPage() {
         if (myRoomsResponse.ok) {
           const myRoomsData = await myRoomsResponse.json()
           if (myRoomsData.ok && myRoomsData.data?.rooms) {
-            setMyRooms(myRoomsData.data.rooms)
+            const rooms = myRoomsData.data.rooms
+            setMyRooms(rooms)
             // Auto-select first room if no room selected
-            if (!roomId && myRoomsData.data.rooms.length > 0) {
-              const firstRoom = myRoomsData.data.rooms[0]
-              setRoomId(firstRoom.id)
-              setRoomName(firstRoom.name)
-            }
+            setRoomId((currentRoomId) => {
+              if (!currentRoomId && rooms.length > 0) {
+                const firstRoom = rooms[0]
+                setRoomName(firstRoom.name)
+                return firstRoom.id
+              }
+              return currentRoomId
+            })
           }
         }
 
@@ -68,7 +74,7 @@ export default function ChatPage() {
     if (session?.user) {
       fetchRooms()
     }
-  }, [session, roomId])
+  }, [session?.user?.id]) // Only depend on user ID, not roomId
 
   const handleJoinRoom = async (room: Room) => {
     try {
@@ -164,9 +170,13 @@ export default function ChatPage() {
               <button
                 key={room.id}
                 onClick={() => {
-                  setRoomId(room.id)
-                  setRoomName(room.name)
-                  setShowRoomSelector(false)
+                  if (roomId !== room.id) {
+                    setIsSwitchingRoom(true)
+                    setRoomName(room.name) // Update name immediately for smooth transition
+                    setRoomId(room.id)
+                    setShowRoomSelector(false)
+                    // Clear loading state after messages load (handled by ChatRoom)
+                  }
                 }}
                 className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
                   roomId === room.id
@@ -194,7 +204,12 @@ export default function ChatPage() {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {roomId ? (
-          <ChatRoom roomId={roomId} roomName={roomName} />
+          <ChatRoom 
+            roomId={roomId} 
+            roomName={roomName} 
+            isSwitchingRoom={isSwitchingRoom}
+            onMessagesLoaded={() => setIsSwitchingRoom(false)}
+          />
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">

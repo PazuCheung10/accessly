@@ -23,13 +23,16 @@ interface Message {
 interface ChatRoomProps {
   roomId: string
   roomName: string
+  isSwitchingRoom?: boolean
+  onMessagesLoaded?: () => void
 }
 
-export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
+export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessagesLoaded }: ChatRoomProps) {
   const { data: session } = useSession()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showToast, setShowToast] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -37,16 +40,20 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   useEffect(() => {
     if (!session?.user?.id) return
 
+    // Clear messages when switching rooms to prevent flash
+    setMessages([])
+    setIsLoadingMessages(true)
+
     // Initialize socket connection
     const socket = initSocket(session.user.id)
 
     // Join room
     socket.emit('room:join', { roomId, userId: session.user.id })
 
-    // Listen for new messages
-    socket.on('message:new', (message: Message) => {
-      // Ensure message has user object with id
-      if (message.user?.id) {
+    // Listen for new messages (with room filter)
+    const handleMessageNew = (message: Message) => {
+      // Only process messages for the current room
+      if (message.roomId === roomId && message.user?.id) {
         setMessages((prev) => {
           // Deduplicate: check if message already exists (avoid duplicates from API + Socket)
           const exists = prev.some((m) => m.id === message.id)
@@ -55,17 +62,18 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
           }
           return [...prev, message]
         })
-      } else {
-        console.warn('Received message without user.id:', message)
       }
-    })
+    }
+
+    socket.on('message:new', handleMessageNew)
 
     // Load initial messages
     fetchMessages()
 
     return () => {
+      socket.off('message:new', handleMessageNew)
       socket.emit('room:leave', { roomId, userId: session.user.id })
-      disconnectSocket()
+      // Don't disconnect socket on room change, only on unmount
     }
   }, [roomId, session?.user?.id])
 
@@ -76,6 +84,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
 
   const fetchMessages = async () => {
     try {
+      setIsLoadingMessages(true)
       const response = await fetch(`/api/chat/messages?roomId=${roomId}&limit=50`)
       if (!response.ok) {
         throw new Error('Failed to load messages')
@@ -97,6 +106,12 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     } catch (err) {
       console.error('Error fetching messages:', err)
       setError('Failed to load messages')
+    } finally {
+      setIsLoadingMessages(false)
+      // Notify parent that messages have loaded
+      if (onMessagesLoaded) {
+        onMessagesLoaded()
+      }
     }
   }
 
@@ -201,32 +216,41 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
 
   return (
     <div className="flex flex-col h-full bg-slate-950 min-h-0">
-      {/* Header */}
+      {/* Header - stays stable when switching rooms */}
       <div className="px-6 py-4 border-b border-slate-800 flex-shrink-0">
         <h2 className="text-xl font-semibold">{roomName}</h2>
-        <PresenceBar roomId={roomId} />
+        {!isSwitchingRoom && <PresenceBar roomId={roomId} />}
       </div>
 
-      {/* Messages */}
+      {/* Messages - only this area updates when switching rooms */}
       <div
+        key={roomId} // Key here ensures clean message list when room changes
         className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0"
         role="log"
         aria-live="polite"
         aria-label="Chat messages"
       >
-        {messages
-          .filter((message) => message.user?.id) // Filter out messages without user.id
-          .map((message) => (
-            <MessageItem 
-              key={message.id} 
-              message={message} 
-              currentUserId={session.user!.id} 
-            />
-          ))}
-        <div ref={messagesEndRef} />
+        {isLoadingMessages || isSwitchingRoom ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-slate-400">Loading messages...</div>
+          </div>
+        ) : (
+          <>
+            {messages
+              .filter((message) => message.user?.id) // Filter out messages without user.id
+              .map((message) => (
+                <MessageItem 
+                  key={message.id} 
+                  message={message} 
+                  currentUserId={session.user!.id} 
+                />
+              ))}
+            <div ref={messagesEndRef} />
+          </>
+        )}
       </div>
 
-      {/* Input */}
+      {/* Input - stays stable when switching rooms */}
       <div className="px-6 py-4 border-t border-slate-800 flex-shrink-0">
         {error && showToast && (
           <div className="mb-2 text-red-400 text-sm">{error}</div>
@@ -237,13 +261,13 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Type a message..."
-            disabled={isLoading}
+            disabled={isLoading || isSwitchingRoom}
             className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
             rows={2}
           />
           <button
             onClick={sendMessage}
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input.trim() || isSwitchingRoom}
             className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg transition-colors flex-shrink-0"
           >
             Send
