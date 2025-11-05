@@ -21,9 +21,9 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <body className={`${inter.className} h-full bg-slate-950 text-white antialiased`}>
         <AuthProvider>
-          <div className="flex flex-col min-h-screen">
+          <div className="flex flex-col h-screen">
             <Navbar />
-            <main className="flex-1" role="main">
+            <main className="flex-1 min-h-0 overflow-hidden" role="main">
               {children}
             </main>
             <ToasterWrapper />
