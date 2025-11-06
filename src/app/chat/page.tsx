@@ -219,9 +219,10 @@ export default function ChatPage({
       // Still loading, wait
       console.log('Session loading, waiting...')
     } else {
-      // Fallback: if we have session but status is weird, still try to fetch
+      // Fallback: if we have session and its type is not 'never', but status is weird, still try to fetch
       // (API route will handle auth)
-      if (session?.user) {
+      // Explicitly type session as any to avoid type errors from NextAuth types
+      if ((session as any)?.user) {
         console.warn('Session exists but status is not authenticated, attempting fetch anyway')
         fetchRooms()
       } else {
