@@ -7,6 +7,7 @@ import { useChatStore, Message as Msg } from '@/lib/chatStore'
 import { isNearBottom, scrollToBottom, preserveScrollOnPrepend } from '@/lib/scroll'
 import { MessageItem } from './MessageItem'
 import { PresenceBar } from './PresenceBar'
+import { RoomHeader } from './rooms/RoomHeader'
 
 // Store unsent messages per room (outside component to persist across re-renders)
 const unsentMessages: Record<string, string> = {}
@@ -33,6 +34,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
   const [isLoadingMessages, setIsLoadingMessages] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showToast, setShowToast] = useState(false)
+  const [isRestoringScroll, setIsRestoringScroll] = useState(false)
   
   // Get DB user ID for comparison (fetch on mount)
   const [dbUserId, setDbUserId] = useState<string | null>(null)
@@ -140,8 +142,8 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       if (hasSavedScroll) {
         // We have a saved scroll position (even if 0 for empty room)
         // Hide container during restore to prevent flash
+        setIsRestoringScroll(true)
         isRestoringScrollRef.current = true
-        el.style.visibility = 'hidden'
         
         // Force a reflow to ensure layout is calculated
         void el.offsetHeight
@@ -159,7 +161,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
                 messagesContainerRef.current.scrollTop = savedScroll
               }
               // Show container (no flash - scroll is already set)
-              messagesContainerRef.current.style.visibility = 'visible'
+              setIsRestoringScroll(false)
               isRestoringScrollRef.current = false
               hasInitialisedRef.current = true
             }
@@ -167,15 +169,25 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
         })
       } else {
         // First visit to this room (no saved scroll position)
+        // Hide container during initial scroll to prevent flash
+        setIsRestoringScroll(true)
+        isRestoringScrollRef.current = true
+        
         if (room.messages?.length) {
-          // Has messages → wait for DOM, then snap to bottom
+          // Has messages → wait for DOM, then snap to bottom synchronously
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               if (!messagesContainerRef.current) return
               const box = messagesContainerRef.current
+              // Force reflow to ensure scrollHeight is accurate
+              void box.offsetHeight
+              // Set scroll to bottom synchronously
               box.scrollTop = box.scrollHeight
               // Save scroll position after setting
               setRoom(roomId, { scrollTop: box.scrollTop })
+              // Show container (no flash - scroll is already set)
+              setIsRestoringScroll(false)
+              isRestoringScrollRef.current = false
               hasInitialisedRef.current = true
             })
           })
@@ -183,6 +195,8 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
           // Empty room - set to top immediately and save to cache
           el.scrollTop = 0
           setRoom(roomId, { scrollTop: 0 }) // Save scrollTop = 0 for empty room
+          setIsRestoringScroll(false)
+          isRestoringScrollRef.current = false
           hasInitialisedRef.current = true
         }
       }
@@ -192,6 +206,38 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     }
     // Watch only roomId and messages length, NOT scrollTop (to avoid re-running on scroll)
   }, [roomId, room?.messages?.length, room, onMessagesLoaded, setRoom])
+
+  // 4.3a Handle scroll when messages first appear (for non-cached rooms)
+  useLayoutEffect(() => {
+    // Only handle scroll for non-cached rooms that just got messages
+    // Container is already hidden from fetchInitial
+    if (room || !messages.length || hasInitialisedRef.current) return
+    if (!isRestoringScrollRef.current) return // Only if we're in restore mode
+    
+    const el = messagesContainerRef.current
+    if (!el || isLoadingMessages) return
+    
+    // Wait for layout, then scroll to bottom synchronously
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!messagesContainerRef.current) return
+        const box = messagesContainerRef.current
+        
+        // Force reflow to ensure scrollHeight is accurate
+        void box.offsetHeight
+        
+        // Scroll to bottom synchronously (before showing container)
+        box.scrollTop = box.scrollHeight
+        
+        // Save scroll position
+        setRoom(roomId, { scrollTop: box.scrollTop })
+        
+        // Show container (no flash - scroll is already set)
+        setIsRestoringScroll(false)
+        isRestoringScrollRef.current = false
+      })
+    })
+  }, [roomId, messages.length, room, isLoadingMessages, setRoom])
 
   // 4.3 Initial fetch if needed
   useEffect(() => {
@@ -328,6 +374,11 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
   // 4.8 First-time fetch (latest page) → render → jump to bottom (no animation)
   const fetchInitial = async () => {
     let msgs: Msg[] = []
+    
+    // Hide container BEFORE fetching to prevent flash
+    setIsRestoringScroll(true)
+    isRestoringScrollRef.current = true
+    
     try {
       setIsLoadingMessages(true)
       const res = await fetch(`/api/chat/messages?roomId=${roomId}&limit=50`)
@@ -347,25 +398,27 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       setTimeout(() => setShowToast(false), 3000)
     } finally {
       setIsLoadingMessages(false)
-
-      // Now that they've rendered, snap to bottom instantly (or top for empty room)
-      const el = messagesContainerRef.current
-      if (el) {
-        if (msgs.length > 0) {
-          scrollToBottom(el) // immediate (no smooth)
-        } else {
-          // Empty room - set to top
+      // Note: Scroll handling is done in useLayoutEffect when messages appear
+      // Container visibility is controlled by isRestoringScroll state
+      
+      // For empty rooms, we can show immediately
+      if (msgs.length === 0) {
+        const el = messagesContainerRef.current
+        if (el) {
           el.scrollTop = 0
+          setRoom(roomId, { scrollTop: 0 })
         }
-        // Save scroll position (even if 0 for empty room) so we can restore it later
-        setRoom(roomId, { scrollTop: el.scrollTop })
-      }
-
-      hasInitialisedRef.current = true
-      onMessagesLoaded?.()
-
-      // Optional: immediately poll for any very-new messages (only if we have messages)
-      if (msgs.length > 0) {
+        setIsRestoringScroll(false)
+        isRestoringScrollRef.current = false
+        hasInitialisedRef.current = true
+        onMessagesLoaded?.()
+      } else {
+        // For rooms with messages, useLayoutEffect will handle scrolling and showing
+        // Just mark as ready for the useLayoutEffect to handle
+        hasInitialisedRef.current = true
+        onMessagesLoaded?.()
+        
+        // Optional: immediately poll for any very-new messages
         void fetchNewerAfter()
       }
     }
@@ -501,9 +554,9 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
 
   return (
     <div className="flex flex-col h-full bg-slate-950 min-h-0">
-      {/* Header - stays stable when switching rooms */}
-      <div className="px-6 py-4 border-b border-slate-800 flex-shrink-0">
-        <h2 className="text-xl font-semibold">{roomName}</h2>
+      {/* Header with room details, badges, and actions */}
+      <RoomHeader roomId={roomId} roomName={roomName} />
+      <div className="px-6 pb-2 border-b border-slate-800 flex-shrink-0">
         <PresenceBar roomId={roomId} />
       </div>
 
@@ -512,7 +565,10 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0"
-        style={{ scrollBehavior: 'auto' }}
+        style={{ 
+          scrollBehavior: 'auto',
+          visibility: isRestoringScroll ? 'hidden' : 'visible'
+        }}
         role="log"
         aria-live="polite"
         aria-label="Chat messages"

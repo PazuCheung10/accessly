@@ -56,8 +56,13 @@ export function CreateRoomButton() {
       })
       setIsOpen(false)
       
-      // Refresh the page to show new room
-      router.refresh()
+      // Navigate to the newly created room
+      if (data.data?.room?.id) {
+        router.push(`/chat?room=${data.data.room.id}`)
+      } else {
+        // Fallback: refresh the page
+        router.refresh()
+      }
     } catch (err: any) {
       alert(err.message || 'Failed to create room')
     } finally {
