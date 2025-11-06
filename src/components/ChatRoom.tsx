@@ -62,6 +62,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
   const inputRef = useRef<string>(input)
   const [isLoadingOlder, setIsLoadingOlder] = useState(false) // For pagination indicator
   const isRestoringScrollRef = useRef(false) // Track if we're restoring scroll
+  const isInitialFetchingRef = useRef(false) // Track if we're doing the initial fetch for this room
 
   // Keep inputRef in sync with input state
   useEffect(() => {
@@ -127,6 +128,8 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       return
     }
 
+    // Reset initial fetch tracking when room changes
+    isInitialFetchingRef.current = false
     hasInitialisedRef.current = false
 
     // If room exists in cache (even if empty), render immediately (no loader)
@@ -383,29 +386,38 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
   const fetchInitial = async () => {
     let msgs: Msg[] = []
     
+    // Mark that we're doing the initial fetch
+    isInitialFetchingRef.current = true
+    
     // Hide container BEFORE fetching to prevent flash
     setIsRestoringScroll(true)
     isRestoringScrollRef.current = true
     
     try {
+      // Ensure loading state is true (might already be, but be explicit)
       setIsLoadingMessages(true)
       const res = await fetch(`/api/chat/messages?roomId=${roomId}&limit=50`)
       const json = await res.json()
       msgs = (json.data?.messages ?? json.messages ?? []).filter((m: Msg) => m.user?.id)
 
       // Store messages (even if empty); also set cursor & lastMessageId
+      // Note: upsertMessages will create room entry, but we track initial fetch with ref
       const oldest = msgs[0]?.id ?? null
       const newest = msgs[msgs.length - 1]?.id ?? null
-      // Create room entry in cache (even if empty) so we don't fetch again
-      setRoom(roomId, { cursor: oldest, lastMessageId: newest })
       upsertMessages(roomId, msgs)
+      setRoom(roomId, { cursor: oldest, lastMessageId: newest })
     } catch (err) {
       console.error('Error fetching initial messages:', err)
       setError('Failed to load messages')
       setShowToast(true)
       setTimeout(() => setShowToast(false), 3000)
     } finally {
+      // Mark that initial fetch is complete
+      isInitialFetchingRef.current = false
+      
+      // Set loading to false
       setIsLoadingMessages(false)
+      
       // Note: Scroll handling is done in useLayoutEffect when messages appear
       // Container visibility is controlled by isRestoringScroll state
       
@@ -600,8 +612,9 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
         aria-live="polite"
         aria-label="Chat messages"
       >
-        {(isLoadingMessages && !room) ? (
-          // Only show loader on first visit to a room (no cache at all)
+        {(isLoadingMessages && (!room || isInitialFetchingRef.current)) ? (
+          // Show loader on first visit (no cache) OR during initial fetch (even if room entry exists)
+          // This handles the case where upsertMessages creates room entry before fetch completes
           <div className="flex items-center justify-center h-full">
             <div className="text-slate-400">Loading messages...</div>
           </div>
