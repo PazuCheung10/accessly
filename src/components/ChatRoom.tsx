@@ -58,7 +58,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const hasInitialisedRef = useRef(false) // for this room lifecycle
   const currentRoomIdRef = useRef<string>(roomId)
-  const prevRoomIdRef = useRef(roomId)
+  const prevRoomIdRef = useRef<string | null>(null)
   const inputRef = useRef<string>(input)
   const [isLoadingOlder, setIsLoadingOlder] = useState(false) // For pagination indicator
   const isRestoringScrollRef = useRef(false) // Track if we're restoring scroll
@@ -120,7 +120,8 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     if (!el) return
 
     // Only restore scroll when roomId changes, not on every scrollTop update
-    const shouldRestore = prevRoomIdRef.current !== roomId
+    // First mount (prevRoomIdRef.current === null) also counts as "should restore"
+    const shouldRestore = prevRoomIdRef.current === null || prevRoomIdRef.current !== roomId
     if (!shouldRestore) {
       // Room hasn't changed, don't restore
       return
@@ -164,6 +165,8 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
               setIsRestoringScroll(false)
               isRestoringScrollRef.current = false
               hasInitialisedRef.current = true
+              // Update prevRoomIdRef after restore completes
+              prevRoomIdRef.current = roomId
             }
           })
         })
@@ -189,6 +192,8 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
               setIsRestoringScroll(false)
               isRestoringScrollRef.current = false
               hasInitialisedRef.current = true
+              // Update prevRoomIdRef after restore completes
+              prevRoomIdRef.current = roomId
             })
           })
         } else {
@@ -198,6 +203,8 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
           setIsRestoringScroll(false)
           isRestoringScrollRef.current = false
           hasInitialisedRef.current = true
+          // Update prevRoomIdRef after restore completes
+          prevRoomIdRef.current = roomId
         }
       }
     } else {
@@ -209,9 +216,10 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
 
   // 4.3a Handle scroll when messages first appear (for non-cached rooms)
   useLayoutEffect(() => {
-    // Only handle scroll for non-cached rooms that just got messages
+    // Only handle scroll for rooms that just got messages
     // Container is already hidden from fetchInitial
-    if (room || !messages.length || hasInitialisedRef.current) return
+    // Don't check for room existence - messages might have just arrived
+    if (!messages.length || hasInitialisedRef.current) return
     if (!isRestoringScrollRef.current) return // Only if we're in restore mode
     
     const el = messagesContainerRef.current
@@ -413,13 +421,32 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
         hasInitialisedRef.current = true
         onMessagesLoaded?.()
       } else {
-        // For rooms with messages, useLayoutEffect will handle scrolling and showing
-        // Just mark as ready for the useLayoutEffect to handle
-        hasInitialisedRef.current = true
-        onMessagesLoaded?.()
-        
-        // Optional: immediately poll for any very-new messages
-        void fetchNewerAfter()
+        // First-time messages: snap to bottom *now* and unhide.
+        // This ensures the container is visible immediately after the first fetch
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const el = messagesContainerRef.current
+            if (!el) return
+            
+            // Force reflow to ensure scrollHeight is accurate
+            void el.offsetHeight
+            
+            // Scroll to bottom synchronously (before showing container)
+            el.scrollTop = el.scrollHeight
+            
+            // Save scroll position
+            setRoom(roomId, { scrollTop: el.scrollTop })
+            
+            // Show container (no flash - scroll is already set)
+            setIsRestoringScroll(false)
+            isRestoringScrollRef.current = false
+            hasInitialisedRef.current = true
+            onMessagesLoaded?.()
+            
+            // Optional: immediately poll for any very-new messages
+            void fetchNewerAfter()
+          })
+        })
       }
     }
   }
