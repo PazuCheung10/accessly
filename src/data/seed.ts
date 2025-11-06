@@ -1,4 +1,4 @@
-import { PrismaClient, Role, RoomRole } from '@prisma/client'
+import { PrismaClient, Role, RoomRole, RoomType } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -44,98 +44,170 @@ async function main() {
   console.log('✅ Created regular user:', user.email)
   console.log('   Password: user123')
 
-  // Create public rooms: #general and #random
+  // Create public rooms with tags
   const generalRoom = await prisma.room.upsert({
     where: { name: '#general' },
-    update: {},
+    update: {
+      title: 'General Discussion',
+      description: 'General chat for everyone',
+      type: RoomType.PUBLIC,
+      creatorId: admin.id,
+      tags: ['general', 'chat', 'community'],
+    },
     create: {
       name: '#general',
+      title: 'General Discussion',
+      description: 'General chat for everyone',
       isPrivate: false,
+      type: RoomType.PUBLIC,
+      creatorId: admin.id,
+      tags: ['general', 'chat', 'community'],
     },
   })
   console.log('✅ Created room:', generalRoom.name)
 
   const randomRoom = await prisma.room.upsert({
     where: { name: '#random' },
-    update: {},
+    update: {
+      title: 'Random Chat',
+      description: 'Random topics and off-topic discussions',
+      type: RoomType.PUBLIC,
+      creatorId: admin.id,
+      tags: ['random', 'off-topic', 'fun'],
+    },
     create: {
       name: '#random',
+      title: 'Random Chat',
+      description: 'Random topics and off-topic discussions',
       isPrivate: false,
+      type: RoomType.PUBLIC,
+      creatorId: admin.id,
+      tags: ['random', 'off-topic', 'fun'],
     },
   })
   console.log('✅ Created room:', randomRoom.name)
 
+  // Create another public room with different tags
+  const techRoom = await prisma.room.upsert({
+    where: { name: '#tech' },
+    update: {
+      title: 'Tech Talk',
+      description: 'Discuss technology, programming, and development',
+      type: RoomType.PUBLIC,
+      creatorId: admin.id,
+      tags: ['tech', 'programming', 'development'],
+    },
+    create: {
+      name: '#tech',
+      title: 'Tech Talk',
+      description: 'Discuss technology, programming, and development',
+      isPrivate: false,
+      type: RoomType.PUBLIC,
+      creatorId: admin.id,
+      tags: ['tech', 'programming', 'development'],
+    },
+  })
+  console.log('✅ Created room:', techRoom.name)
+
   // Create private room
   const privateRoom = await prisma.room.upsert({
     where: { name: '#private' },
-    update: {},
+    update: {
+      title: 'Private Discussion',
+      description: 'Private room for invited members only',
+      type: RoomType.PRIVATE,
+      creatorId: admin.id,
+      tags: ['private'],
+    },
     create: {
       name: '#private',
+      title: 'Private Discussion',
+      description: 'Private room for invited members only',
       isPrivate: true,
+      type: RoomType.PRIVATE,
+      creatorId: admin.id,
+      tags: ['private'],
     },
   })
   console.log('✅ Created private room:', privateRoom.name)
 
-  // Add admin as owner of all rooms
-  await prisma.roomMember.upsert({
-    where: {
-      userId_roomId: {
-        userId: admin.id,
-        roomId: generalRoom.id,
-      },
+  // Create DM room between admin and user
+  const dmRoom = await prisma.room.upsert({
+    where: { name: `dm-${admin.id}-${user.id}` },
+    update: {
+      title: `DM: ${admin.name} & ${user.name}`,
+      description: null,
+      type: RoomType.DM,
+      creatorId: admin.id,
+      tags: [],
     },
-    update: {},
     create: {
-      userId: admin.id,
-      roomId: generalRoom.id,
-      role: RoomRole.OWNER,
+      name: `dm-${admin.id}-${user.id}`,
+      title: `DM: ${admin.name} & ${user.name}`,
+      description: null,
+      isPrivate: true,
+      type: RoomType.DM,
+      creatorId: admin.id,
+      tags: [],
     },
   })
+  console.log('✅ Created DM room:', dmRoom.name)
 
-  await prisma.roomMember.upsert({
-    where: {
-      userId_roomId: {
-        userId: admin.id,
-        roomId: randomRoom.id,
+  // Add admin as owner of all rooms (except DM, where both are members)
+  const roomsToAddAdmin = [generalRoom, randomRoom, techRoom, privateRoom]
+  for (const room of roomsToAddAdmin) {
+    await prisma.roomMember.upsert({
+      where: {
+        userId_roomId: {
+          userId: admin.id,
+          roomId: room.id,
+        },
       },
-    },
-    update: {},
-    create: {
-      userId: admin.id,
-      roomId: randomRoom.id,
-      role: RoomRole.OWNER,
-    },
-  })
-
-  await prisma.roomMember.upsert({
-    where: {
-      userId_roomId: {
-        userId: admin.id,
-        roomId: privateRoom.id,
+      update: {
+        role: RoomRole.OWNER,
       },
-    },
-    update: {},
-    create: {
-      userId: admin.id,
-      roomId: privateRoom.id,
-      role: RoomRole.OWNER,
-    },
-  })
-  console.log('✅ Added admin as owner of all rooms')
+      create: {
+        userId: admin.id,
+        roomId: room.id,
+        role: RoomRole.OWNER,
+      },
+    })
+  }
+  console.log('✅ Added admin as owner of all public/private rooms')
 
   // Add regular user as member of public rooms
+  const publicRooms = [generalRoom, randomRoom, techRoom]
+  for (const room of publicRooms) {
+    await prisma.roomMember.upsert({
+      where: {
+        userId_roomId: {
+          userId: user.id,
+          roomId: room.id,
+        },
+      },
+      update: {},
+      create: {
+        userId: user.id,
+        roomId: room.id,
+        role: RoomRole.MEMBER,
+      },
+    })
+  }
+  console.log('✅ Added regular user as member of public rooms')
+
+  // Add both admin and user to DM room (exactly 2 members)
   await prisma.roomMember.upsert({
     where: {
       userId_roomId: {
-        userId: user.id,
-        roomId: generalRoom.id,
+        userId: admin.id,
+        roomId: dmRoom.id,
       },
     },
     update: {},
     create: {
-      userId: user.id,
-      roomId: generalRoom.id,
-      role: RoomRole.MEMBER,
+      userId: admin.id,
+      roomId: dmRoom.id,
+      role: RoomRole.MEMBER, // DMs don't have owners, just members
     },
   })
 
@@ -143,17 +215,17 @@ async function main() {
     where: {
       userId_roomId: {
         userId: user.id,
-        roomId: randomRoom.id,
+        roomId: dmRoom.id,
       },
     },
     update: {},
     create: {
       userId: user.id,
-      roomId: randomRoom.id,
+      roomId: dmRoom.id,
       role: RoomRole.MEMBER,
     },
   })
-  console.log('✅ Added regular user as member of public rooms')
+  console.log('✅ Added admin and user to DM room (2 members)')
 
   console.log('✨ Seeding completed!')
 }
