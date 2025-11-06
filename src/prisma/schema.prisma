@@ -20,6 +20,7 @@ model User {
   sessions      Session[]
   messages      Message[]
   memberships   RoomMember[]
+  createdRooms  Room[]    @relation("RoomCreator")
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -60,7 +61,13 @@ model VerificationToken {
 model Room {
   id          String        @id @default(cuid())
   name        String        @unique
+  title       String        // Required display title
+  description String?       // Optional description
   isPrivate   Boolean       @default(false)
+  type        RoomType      @default(PUBLIC)
+  tags        String[]      // Array of tags
+  creatorId   String?       // FK to User who created the room
+  creator     User?         @relation("RoomCreator", fields: [creatorId], references: [id], onDelete: SetNull)
   messages    Message[]
   members     RoomMember[]
   createdAt   DateTime      @default(now())
@@ -75,6 +82,8 @@ model RoomMember {
   user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   room    Room  @relation(fields: [roomId], references: [id], onDelete: Cascade)
   @@unique([userId, roomId])
+  // For DM rooms: ensure exactly two members and prevent duplicate DM pairs
+  @@index([roomId])
 }
 
 model Message {
@@ -97,4 +106,10 @@ enum RoomRole {
   MEMBER
   MODERATOR
   OWNER
+}
+
+enum RoomType {
+  PUBLIC
+  PRIVATE
+  DM
 }
