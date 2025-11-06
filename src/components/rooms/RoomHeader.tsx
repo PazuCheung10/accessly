@@ -230,7 +230,10 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
             </button>
           )}
           <button
-            onClick={() => setShowMembers(!showMembers)}
+            onClick={() => {
+              console.log('Members button clicked, toggling showMembers:', !showMembers)
+              setShowMembers(!showMembers)
+            }}
             className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded"
             title="View members"
           >
@@ -310,7 +313,10 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
         <MembersList
           roomId={roomId}
           userRole={roomDetails.userRole}
-          onClose={() => setShowMembers(false)}
+          onClose={() => {
+            console.log('Closing members modal')
+            setShowMembers(false)
+          }}
           onMemberRemoved={fetchRoomDetails}
         />
       )}
@@ -331,24 +337,42 @@ function MembersList({
 }) {
   const [members, setMembers] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    fetchMembers()
-  }, [roomId])
+  const [error, setError] = useState<string | null>(null)
 
   const fetchMembers = async () => {
     try {
+      setIsLoading(true)
+      setError(null)
+      console.log('Fetching members for room:', roomId)
       const response = await fetch(`/api/chat/rooms/${roomId}/members`)
       const data = await response.json()
-      if (data.ok && data.data?.members) {
-        setMembers(data.data.members)
+      
+      console.log('Members API response:', { ok: data.ok, status: response.status, data })
+      
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || 'Failed to fetch members')
       }
-    } catch (err) {
+      
+      if (data.data?.members) {
+        console.log('Setting members:', data.data.members.length, 'members')
+        setMembers(data.data.members)
+      } else {
+        console.warn('No members in response data')
+        setMembers([])
+      }
+    } catch (err: any) {
       console.error('Error fetching members:', err)
+      setError(err.message || 'Failed to load members')
+      setMembers([])
     } finally {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchMembers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId])
 
   const handleRemoveMember = async (userId: string) => {
     if (!confirm('Remove this member?')) return
@@ -386,6 +410,18 @@ function MembersList({
         </div>
         {isLoading ? (
           <div className="text-slate-400">Loading...</div>
+        ) : error ? (
+          <div className="text-red-400">
+            <p className="mb-2">{error}</p>
+            <button
+              onClick={fetchMembers}
+              className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded"
+            >
+              Retry
+            </button>
+          </div>
+        ) : members.length === 0 ? (
+          <div className="text-slate-400">No members found</div>
         ) : (
           <div className="space-y-2">
             {members.map((member) => (

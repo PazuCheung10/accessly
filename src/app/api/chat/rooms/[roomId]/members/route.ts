@@ -65,7 +65,7 @@ export async function GET(
       },
       orderBy: [
         { role: 'asc' }, // OWNER first, then MODERATOR, then MEMBER
-        { createdAt: 'asc' },
+        { id: 'asc' }, // Use id for secondary sort (CUIDs are roughly chronological)
       ],
     })
 
@@ -77,17 +77,22 @@ export async function GET(
         members: members.map((m) => ({
           id: m.id,
           role: m.role,
-          joinedAt: m.createdAt,
           user: m.user,
         })),
       },
     })
   } catch (error: any) {
     console.error('Error fetching members:', error)
+    console.error('Error stack:', error.stack)
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+    })
     return Response.json({
       ok: false,
       code: 'INTERNAL_ERROR',
-      message: 'Internal server error',
+      message: error.message || 'Internal server error',
     }, { status: 500 })
   }
 }
