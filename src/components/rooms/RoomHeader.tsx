@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { RoomRole } from '@prisma/client'
 
 interface RoomHeaderProps {
@@ -155,7 +156,8 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
     : { label: 'DM', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' }
 
   const canEdit = roomDetails.userRole === RoomRole.OWNER
-  const canInvite = roomDetails.userRole === RoomRole.OWNER || roomDetails.userRole === RoomRole.MODERATOR
+  // DM rooms cannot have invites (only 2 members)
+  const canInvite = roomDetails.type !== 'DM' && (roomDetails.userRole === RoomRole.OWNER || roomDetails.userRole === RoomRole.MODERATOR)
 
   return (
     <div className="px-6 py-4 border-b border-slate-800 flex-shrink-0">
@@ -335,9 +337,12 @@ function MembersList({
   onClose: () => void
   onMemberRemoved: () => void
 }) {
+  const { data: session } = useSession()
+  const router = useRouter()
   const [members, setMembers] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [messagingUserId, setMessagingUserId] = useState<string | null>(null)
 
   const fetchMembers = async () => {
     try {
@@ -396,6 +401,60 @@ function MembersList({
 
   const canRemove = userRole === RoomRole.OWNER || userRole === RoomRole.MODERATOR
 
+  const handleMessageUser = async (userId: string) => {
+    if (!session?.user?.email) {
+      alert('Please sign in to message users')
+      return
+    }
+
+    // Prevent messaging yourself (use currentUserId from DB)
+    if (currentUserId && currentUserId === userId) {
+      alert('Cannot message yourself')
+      return
+    }
+
+    try {
+      setMessagingUserId(userId)
+      const response = await fetch(`/api/chat/dm/${userId}`, {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || 'Failed to create DM')
+      }
+
+      // Navigate to the DM room
+      if (data.data?.room?.id) {
+        onClose() // Close members modal
+        router.push(`/chat?room=${data.data.room.id}`)
+      }
+    } catch (err: any) {
+      console.error('Error creating DM:', err)
+      alert(err.message || 'Failed to start conversation')
+    } finally {
+      setMessagingUserId(null)
+    }
+  }
+
+  // Get current user ID from session (need to fetch from DB to match)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (session?.user?.email) {
+      // Fetch DB user ID to match member IDs
+      fetch('/api/debug/session')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.ok && data.dbUser?.id) {
+            setCurrentUserId(data.dbUser.id)
+          }
+        })
+        .catch((err) => console.error('Failed to fetch current user ID:', err))
+    }
+  }, [session?.user?.email])
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
@@ -424,28 +483,41 @@ function MembersList({
           <div className="text-slate-400">No members found</div>
         ) : (
           <div className="space-y-2">
-            {members.map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center justify-between p-3 bg-slate-900 rounded"
-              >
-                <div>
-                  <div className="font-medium">{member.user.name || member.user.email}</div>
-                  <div className="text-xs text-slate-400">{member.user.email}</div>
+            {members.map((member) => {
+              const isCurrentUser = currentUserId && member.user.id === currentUserId
+              return (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between p-3 bg-slate-900 rounded"
+                >
+                  <div>
+                    <div className="font-medium">{member.user.name || member.user.email}</div>
+                    <div className="text-xs text-slate-400">{member.user.email}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 bg-slate-700 rounded">{member.role}</span>
+                    {!isCurrentUser && (
+                      <button
+                        onClick={() => handleMessageUser(member.user.id)}
+                        disabled={messagingUserId === member.user.id}
+                        className="px-2 py-1 text-xs bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-700 disabled:opacity-50 rounded"
+                        title="Message user"
+                      >
+                        {messagingUserId === member.user.id ? '...' : '💬'}
+                      </button>
+                    )}
+                    {canRemove && member.role !== RoomRole.OWNER && !isCurrentUser && (
+                      <button
+                        onClick={() => handleRemoveMember(member.user.id)}
+                        className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 rounded"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs px-2 py-1 bg-slate-700 rounded">{member.role}</span>
-                  {canRemove && member.role !== RoomRole.OWNER && (
-                    <button
-                      onClick={() => handleRemoveMember(member.user.id)}
-                      className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 rounded"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

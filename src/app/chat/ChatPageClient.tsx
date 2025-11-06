@@ -17,6 +17,22 @@ interface Room {
     members: number
     messages: number
   }
+  lastMessage?: {
+    id: string
+    content: string
+    createdAt: string
+    user: {
+      id: string
+      name: string | null
+      image: string | null
+    }
+  } | null
+  otherUser?: {
+    id: string
+    name: string | null
+    email: string | null
+    image: string | null
+  } | null
 }
 
 interface ChatPageClientProps {
@@ -201,90 +217,158 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
           </div>
         </div>
 
-        {/* My Rooms */}
-        <div className="flex-1 overflow-y-auto p-4 min-h-0">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-slate-400">My Rooms</h3>
-            <button
-              onClick={async () => {
-                console.log('=== MANUAL DEBUG TEST ===')
-                console.log('Session:', session)
-                console.log('My Rooms State:', myRooms)
-                
-                // Test direct API call
-                try {
-                  const res = await fetch('/api/chat/rooms')
-                  const data = await res.json()
-                  console.log('Direct API call result:', data)
-                } catch (e) {
-                  console.error('Direct API call error:', e)
-                }
-                
-                // Test debug endpoint
-                try {
-                  const res = await fetch('/api/debug/rooms')
-                  const data = await res.json()
-                  console.log('Debug endpoint result:', data)
-                  alert(`Debug: ${JSON.stringify(data, null, 2)}`)
-                } catch (e) {
-                  console.error('Debug endpoint error:', e)
-                }
-              }}
-              className="text-xs px-2 py-1 bg-purple-600 hover:bg-purple-700 rounded"
-              title="Debug: Check console"
-            >
-              🐛
-            </button>
-          </div>
-          <div className="space-y-2">
-            {myRooms.length === 0 ? (
-              <div className="text-xs text-slate-500 p-2">
-                <div>No rooms found</div>
-                <div className="mt-1 text-slate-600">
-                  Check console for debug info
+        {/* My Rooms & Direct Messages */}
+        <div className="flex-1 overflow-y-auto p-4 min-h-0 space-y-4">
+          {/* Direct Messages Section */}
+          {(() => {
+            const dmRooms = myRooms.filter((r) => r.type === 'DM')
+            return (
+              <>
+                {dmRooms.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-slate-400 mb-2">Direct Messages</h3>
+                    <div className="space-y-1">
+                      {dmRooms.map((room) => {
+                        const displayName = room.otherUser?.name || room.otherUser?.email || room.title || room.name
+                        const lastMessagePreview = room.lastMessage
+                          ? room.lastMessage.content.length > 30
+                            ? room.lastMessage.content.substring(0, 30) + '...'
+                            : room.lastMessage.content
+                          : null
+                        return (
+                          <button
+                            key={room.id}
+                            onClick={() => {
+                              if (roomId !== room.id) {
+                                setIsSwitchingRoom(true)
+                                setRoomName(displayName)
+                                setRoomId(room.id)
+                              }
+                            }}
+                            className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                              roomId === room.id
+                                ? 'bg-cyan-600 text-white'
+                                : 'bg-slate-800 hover:bg-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="truncate font-medium">{displayName}</span>
+                              {room.lastMessage && (
+                                <span className="text-xs opacity-70 ml-2 flex-shrink-0">
+                                  {new Date(room.lastMessage.createdAt).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                              )}
+                            </div>
+                            {lastMessagePreview && (
+                              <div className="text-xs opacity-70 truncate">{lastMessagePreview}</div>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          })()}
+
+          {/* My Rooms Section (PUBLIC/PRIVATE) */}
+          {(() => {
+            const regularRooms = myRooms.filter((r) => r.type !== 'DM')
+            const dmRooms = myRooms.filter((r) => r.type === 'DM')
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium text-slate-400">My Rooms</h3>
+                  <button
+                    onClick={async () => {
+                      console.log('=== MANUAL DEBUG TEST ===')
+                      console.log('Session:', session)
+                      console.log('My Rooms State:', myRooms)
+                      
+                      // Test direct API call
+                      try {
+                        const res = await fetch('/api/chat/rooms')
+                        const data = await res.json()
+                        console.log('Direct API call result:', data)
+                      } catch (e) {
+                        console.error('Direct API call error:', e)
+                      }
+                      
+                      // Test debug endpoint
+                      try {
+                        const res = await fetch('/api/debug/rooms')
+                        const data = await res.json()
+                        console.log('Debug endpoint result:', data)
+                        alert(`Debug: ${JSON.stringify(data, null, 2)}`)
+                      } catch (e) {
+                        console.error('Debug endpoint error:', e)
+                      }
+                    }}
+                    className="text-xs px-2 py-1 bg-purple-600 hover:bg-purple-700 rounded"
+                    title="Debug: Check console"
+                  >
+                    🐛
+                  </button>
                 </div>
-              </div>
-            ) : (
-              myRooms.map((room) => (
-                <button
-                  key={room.id}
-                  onClick={() => {
-                    if (roomId !== room.id) {
-                      setIsSwitchingRoom(true)
-                      setRoomName(room.name || room.title || 'General') // Update name immediately for smooth transition
-                      setRoomId(room.id)
-                      // Clear loading state after messages load (handled by ChatRoom)
-                    }
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
-                    roomId === room.id
-                      ? 'bg-cyan-600 text-white'
-                      : 'bg-slate-800 hover:bg-slate-700'
-                  }`}
-                >
-                  <span className="truncate">{room.name}</span>
-                  {room._count && (
-                    <span className="text-xs opacity-70 ml-2 flex-shrink-0">
-                      {room._count.messages || 0}
-                    </span>
+                <div className="space-y-2">
+                  {regularRooms.length === 0 && dmRooms.length === 0 ? (
+                    <div className="text-xs text-slate-500 p-2">
+                      <div>No rooms found</div>
+                      <div className="mt-1 text-slate-600">
+                        Check console for debug info
+                      </div>
+                    </div>
+                  ) : regularRooms.length === 0 ? (
+                    <div className="text-xs text-slate-500 p-2">
+                      No regular rooms yet
+                    </div>
+                  ) : (
+                    regularRooms.map((room) => (
+                      <button
+                        key={room.id}
+                        onClick={() => {
+                          if (roomId !== room.id) {
+                            setIsSwitchingRoom(true)
+                            setRoomName(room.name || room.title || 'General')
+                            setRoomId(room.id)
+                          }
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
+                          roomId === room.id
+                            ? 'bg-cyan-600 text-white'
+                            : 'bg-slate-800 hover:bg-slate-700'
+                        }`}
+                      >
+                        <span className="truncate">{room.name || room.title}</span>
+                        {room._count && (
+                          <span className="text-xs opacity-70 ml-2 flex-shrink-0">
+                            {room._count.messages || 0}
+                          </span>
+                        )}
+                      </button>
+                    ))
                   )}
-                </button>
-              ))
-            )}
-          </div>
-          {myRooms.length === 0 && (
-            <div className="mt-4 text-center">
-              <p className="text-sm text-slate-500 mb-2">
-                You're not in any rooms yet.
-              </p>
-              <a
-                href="/"
-                className="inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded text-sm transition-colors"
-              >
-                Discover Rooms
-              </a>
-            </div>
-          )}
+                </div>
+                {regularRooms.length === 0 && dmRooms.length === 0 && (
+                  <div className="mt-4 text-center">
+                    <p className="text-sm text-slate-500 mb-2">
+                      You're not in any rooms yet.
+                    </p>
+                    <a
+                      href="/"
+                      className="inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded text-sm transition-colors"
+                    >
+                      Discover Rooms
+                    </a>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       </div>
 

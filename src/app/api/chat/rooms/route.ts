@@ -115,6 +115,24 @@ export async function GET(request: Request) {
                 },
               },
             },
+            members: {
+              where: {
+                userId: {
+                  not: userId, // For DM rooms, get the other user
+                },
+              },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    image: true,
+                  },
+                },
+              },
+              take: 1, // DM rooms should only have 1 other member
+            },
           },
         },
       },
@@ -129,6 +147,8 @@ export async function GET(request: Request) {
       ...m.room,
       role: m.role,
       lastMessage: m.room.messages[0] || null,
+      // For DM rooms, include the other user
+      otherUser: m.room.type === 'DM' && m.room.members[0] ? m.room.members[0].user : null,
     }))
 
     console.log('GET /api/chat/rooms - Found', rooms.length, 'rooms for user', session.user.id)
