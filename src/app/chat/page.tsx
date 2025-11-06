@@ -19,16 +19,30 @@ interface Room {
   }
 }
 
-export default function ChatPage() {
+export default function ChatPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ room?: string }>
+}) {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [roomId, setRoomId] = useState<string | null>(null)
   const [roomName, setRoomName] = useState<string>('General')
+  const [initialRoomId, setInitialRoomId] = useState<string | null>(null)
   const [myRooms, setMyRooms] = useState<Room[]>([])
-  const [availableRooms, setAvailableRooms] = useState<Room[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSwitchingRoom, setIsSwitchingRoom] = useState(false)
-  const [showRoomSelector, setShowRoomSelector] = useState(false)
+
+  // Check for room parameter from URL
+  useEffect(() => {
+    const checkRoomParam = async () => {
+      const params = await searchParams
+      if (params.room && !roomId) {
+        setInitialRoomId(params.room)
+      }
+    }
+    checkRoomParam()
+  }, [searchParams, roomId])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -94,16 +108,30 @@ export default function ChatPage() {
         
         if (rooms.length > 0) {
           console.log('✅ Setting rooms state:', rooms.length, rooms.map(r => ({ id: r.id, name: r.name })))
-          setMyRooms(rooms)
-          // Auto-select first room if no room selected
-          setRoomId((currentRoomId) => {
-            if (!currentRoomId && rooms.length > 0) {
-              const firstRoom = rooms[0]
-              setRoomName(firstRoom.name || firstRoom.title || 'General')
-              return firstRoom.id
-            }
-            return currentRoomId
-          })
+                  setMyRooms(rooms)
+                  
+                  // Auto-select room: URL param > initial room > first room
+                  setRoomId((currentRoomId) => {
+                    if (currentRoomId) return currentRoomId // Keep current selection
+                    
+                    if (initialRoomId) {
+                      // Check if initialRoomId is in the rooms list
+                      const targetRoom = rooms.find((r) => r.id === initialRoomId)
+                      if (targetRoom) {
+                        setRoomName(targetRoom.name || targetRoom.title || 'General')
+                        return initialRoomId
+                      }
+                    }
+                    
+                    // Fallback to first room
+                    if (rooms.length > 0) {
+                      const firstRoom = rooms[0]
+                      setRoomName(firstRoom.name || firstRoom.title || 'General')
+                      return firstRoom.id
+                    }
+                    
+                    return currentRoomId
+                  })
         } else {
           console.error('❌ My rooms response format error:', {
             ok: myRoomsData.ok,
@@ -115,34 +143,8 @@ export default function ChatPage() {
           setMyRooms([])
         }
 
-        // Fetch available rooms to join
-        const availableResponse = await fetch('/api/chat/rooms/available')
-        
-        if (!availableResponse.ok) {
-          console.error('Available rooms API error:', {
-            status: availableResponse.status,
-            statusText: availableResponse.statusText,
-          })
-          const errorText = await availableResponse.text()
-          console.error('Error response body:', errorText)
-          return
-        }
-        
-        const availableData = await availableResponse.json()
-        console.log('Available rooms API response:', availableData)
-        
-        if (availableData.ok && availableData.data?.rooms) {
-          const rooms = availableData.data.rooms
-          console.log('Available rooms fetched:', rooms.length, rooms)
-          setAvailableRooms(rooms)
-        } else {
-          console.error('Available rooms response format error:', {
-            ok: availableData.ok,
-            hasData: !!availableData.data,
-            hasRooms: !!availableData.data?.rooms,
-            fullResponse: availableData
-          })
-        }
+        // Note: Available rooms are now shown on the home page (forum)
+        // Chat page only shows rooms the user has joined
       } catch (err) {
         console.error('Error fetching rooms:', err)
       } finally {
@@ -172,52 +174,6 @@ export default function ChatPage() {
     }
   }, [status, session]) // Depend on status and session
 
-  const handleJoinRoom = async (room: Room) => {
-    try {
-      console.log('🔄 Joining room:', room.id, room.name)
-      const response = await fetch(`/api/chat/rooms/${room.id}/join`, {
-        method: 'POST',
-      })
-      
-      console.log('📡 Join response status:', response.status)
-      const data = await response.json()
-      console.log('📦 Join response data:', data)
-
-      if (response.ok && data.ok) {
-        console.log('✅ Successfully joined room, refreshing lists...')
-        
-        // Refresh rooms list
-        const myRoomsResponse = await fetch('/api/chat/rooms')
-        if (myRoomsResponse.ok) {
-          const myRoomsData = await myRoomsResponse.json()
-          console.log('📦 Refreshed my rooms:', myRoomsData)
-          if (myRoomsData.ok && myRoomsData.data?.rooms) {
-            setMyRooms(myRoomsData.data.rooms)
-            // Switch to the newly joined room
-            setRoomId(room.id)
-            setRoomName(room.name || room.title || 'General')
-            setShowRoomSelector(false)
-          }
-        }
-        
-        // Refresh available rooms
-        const availableResponse = await fetch('/api/chat/rooms/available')
-        if (availableResponse.ok) {
-          const availableData = await availableResponse.json()
-          console.log('📦 Refreshed available rooms:', availableData)
-          if (availableData.ok && availableData.data?.rooms) {
-            setAvailableRooms(availableData.data.rooms)
-          }
-        }
-      } else {
-        console.error('❌ Join failed:', data)
-        alert(data.message || `Failed to join room: ${data.code || 'Unknown error'}`)
-      }
-    } catch (err) {
-      console.error('❌ Error joining room:', err)
-      alert(`Failed to join room: ${err instanceof Error ? err.message : 'Unknown error'}`)
-    }
-  }
 
   if (status === 'loading' || isLoading) {
     return (
@@ -237,48 +193,18 @@ export default function ChatPage() {
       <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-full flex-shrink-0">
         <div className="p-4 border-b border-slate-800 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Rooms</h2>
-            <button
-              onClick={() => setShowRoomSelector(!showRoomSelector)}
+            <h2 className="text-lg font-semibold">My Rooms</h2>
+            <a
+              href="/"
               className="px-3 py-1 text-sm bg-cyan-600 hover:bg-cyan-700 rounded transition-colors"
             >
-              {showRoomSelector ? 'Hide' : 'Join'}
-            </button>
+              Discover
+            </a>
           </div>
           <div className="text-xs text-slate-500">
             Signed in as: {session.user?.email}
           </div>
         </div>
-
-        {/* Available Rooms to Join */}
-        {showRoomSelector && (
-          <div className="p-4 border-b border-slate-800 flex-shrink-0 max-h-64 overflow-y-auto">
-            <h3 className="text-sm font-medium text-slate-400 mb-2">Available Rooms</h3>
-            {availableRooms.length > 0 ? (
-              <div className="space-y-2">
-                {availableRooms.map((room) => (
-                  <button
-                    key={room.id}
-                    onClick={() => handleJoinRoom(room)}
-                    className="w-full text-left px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm transition-colors flex items-center justify-between"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate font-medium">{room.title || room.name}</div>
-                      {room.description && (
-                        <div className="text-xs text-slate-500 truncate">{room.description}</div>
-                      )}
-                    </div>
-                    <span className="text-xs text-slate-400 ml-2 flex-shrink-0">
-                      {room._count?.members || 0} members
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">No available rooms to join.</p>
-            )}
-          </div>
-        )}
 
         {/* My Rooms */}
         <div className="flex-1 overflow-y-auto p-4 min-h-0">

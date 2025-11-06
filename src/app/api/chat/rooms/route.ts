@@ -97,6 +97,24 @@ export async function GET(request: Request) {
                 messages: true,
               },
             },
+            messages: {
+              take: 1,
+              orderBy: {
+                createdAt: 'desc',
+              },
+              select: {
+                id: true,
+                content: true,
+                createdAt: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    image: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -110,6 +128,7 @@ export async function GET(request: Request) {
     const rooms = memberships.map((m) => ({
       ...m.room,
       role: m.role,
+      lastMessage: m.room.messages[0] || null,
     }))
 
     console.log('GET /api/chat/rooms - Found', rooms.length, 'rooms for user', session.user.id)

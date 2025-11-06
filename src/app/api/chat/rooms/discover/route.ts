@@ -62,12 +62,13 @@ export async function GET(request: Request) {
         break
       case 'active':
       default:
-        // Sort by most recent message
-        orderBy = { messages: { _max: { createdAt: 'desc' } } }
+        // For "most active", sort by message count (rooms with more messages are more active)
+        // This is a proxy for activity - more messages = more active
+        orderBy = { messages: { _count: 'desc' } }
         break
     }
 
-    // Fetch rooms
+    // Fetch rooms with last message
     const rooms = await prisma.room.findMany({
       where,
       take: limit + 1, // Fetch one extra to check if there are more
@@ -94,12 +95,37 @@ export async function GET(request: Request) {
             messages: true,
           },
         },
+        messages: {
+          take: 1,
+          orderBy: {
+            createdAt: 'desc',
+          },
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+        },
       },
     })
 
     // Check if there are more results
     const hasMore = rooms.length > limit
     const roomsToReturn = hasMore ? rooms.slice(0, limit) : rooms
+    
+    // Map rooms to include last message
+    const roomsWithLastMessage = roomsToReturn.map((room) => ({
+      ...room,
+      lastMessage: room.messages[0] || null,
+    }))
+    
     const nextCursor = hasMore && roomsToReturn.length > 0
       ? roomsToReturn[roomsToReturn.length - 1].id
       : null
@@ -109,10 +135,10 @@ export async function GET(request: Request) {
       code: 'SUCCESS',
       message: 'Rooms retrieved successfully',
       data: {
-        rooms: roomsToReturn,
+        rooms: roomsWithLastMessage,
         cursor: nextCursor,
         hasMore,
-        count: roomsToReturn.length,
+        count: roomsWithLastMessage.length,
       },
     })
   } catch (error: any) {

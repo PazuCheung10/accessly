@@ -8,7 +8,7 @@ interface SignInPageProps {
 }
 
 export default function SignInPage({ searchParams }: SignInPageProps) {
-  const [callbackUrl, setCallbackUrl] = useState('/dashboard')
+  const [callbackUrl, setCallbackUrl] = useState('/')
   const [error, setError] = useState<string | null>(null)
   const [hasGitHub, setHasGitHub] = useState(false)
   const [hasEmail, setHasEmail] = useState(false)
@@ -18,7 +18,7 @@ export default function SignInPage({ searchParams }: SignInPageProps) {
     // Parse search params from URL (client-side)
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
-      const cb = params.get('callbackUrl') || '/dashboard'
+      const cb = params.get('callbackUrl') || '/'
       const err = params.get('error')
       setCallbackUrl(cb)
       if (err) setError(err)

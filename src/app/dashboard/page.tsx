@@ -8,10 +8,13 @@ export default async function DashboardPage() {
   const { auth } = await import('@/lib/auth')
   const session = await auth()
 
-  // Require authentication
+  // Require authentication - redirect to home instead
   if (!session?.user) {
-    redirect('/sign-in?callbackUrl=/dashboard')
+    redirect('/sign-in?callbackUrl=/')
   }
+  
+  // Redirect authenticated users to home (forum page)
+  redirect('/')
 
   // Dashboard is accessible to both USER and ADMIN roles
   const { Role } = await import('@prisma/client')
