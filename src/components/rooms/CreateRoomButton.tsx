@@ -60,8 +60,9 @@ export function CreateRoomButton() {
       if (data.data?.room?.id) {
         router.push(`/chat?room=${data.data.room.id}`)
       } else {
-        // Fallback: refresh the page
-        router.refresh()
+        // Fallback: just close modal; room will appear in list on next navigation
+        // No need to refresh - the page will load the proper room from URL
+        console.warn('Room created but no ID returned')
       }
     } catch (err: any) {
       alert(err.message || 'Failed to create room')

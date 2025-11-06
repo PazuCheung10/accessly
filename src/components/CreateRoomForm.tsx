@@ -37,8 +37,11 @@ export function CreateRoomForm() {
       setName('')
       setIsPrivate(false)
       
-      // Refresh the page to show new room
-      router.refresh()
+      // Navigate to the newly created room if we have an ID
+      // Otherwise, just close - room will appear in list on next navigation
+      if (data.data?.room?.id) {
+        router.push(`/chat?room=${data.data.room.id}`)
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to create room')
     } finally {
