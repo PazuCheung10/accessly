@@ -33,6 +33,24 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
   const [isLoadingMessages, setIsLoadingMessages] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showToast, setShowToast] = useState(false)
+  
+  // Get DB user ID for comparison (fetch on mount)
+  const [dbUserId, setDbUserId] = useState<string | null>(null)
+  
+  useEffect(() => {
+    if (session?.user?.email) {
+      // Fetch DB user ID to match message user IDs
+      fetch('/api/debug/session')
+        .then(res => res.json())
+        .then(data => {
+          if (data.ok && data.dbUser?.id) {
+            setDbUserId(data.dbUser.id)
+            console.log('🔑 DB User ID loaded:', data.dbUser.id, 'Session ID:', session.user.id)
+          }
+        })
+        .catch(err => console.error('Failed to fetch DB user ID:', err))
+    }
+  }, [session?.user?.email])
 
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -112,6 +130,8 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     if (room) {
       // 1) Render cached messages immediately (no loader, even if empty)
       setIsLoadingMessages(false)
+      // Notify parent immediately that we're done loading (cached room)
+      onMessagesLoaded?.()
 
       // 2) Restore scroll position (synchronously BEFORE paint to prevent flash)
       // Check if we have a saved scroll position (including 0 for empty rooms)
@@ -171,19 +191,20 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       setIsLoadingMessages(true)
     }
     // Watch only roomId and messages length, NOT scrollTop (to avoid re-running on scroll)
-  }, [roomId, room?.messages?.length])
+  }, [roomId, room?.messages?.length, room, onMessagesLoaded, setRoom])
 
   // 4.3 Initial fetch if needed
   useEffect(() => {
     if (!session?.user?.id) return
 
     // If room exists in cache (even if empty), don't fetch again
+    // Note: onMessagesLoaded() is already called in useLayoutEffect for cached rooms
     if (room) {
       // optional: fetch incrementals after initial paint (only if we have messages)
       if (room.messages?.length) {
         void fetchNewerAfter()
       }
-      onMessagesLoaded?.()
+      // Don't call onMessagesLoaded() here - already called in useLayoutEffect
       return
     }
 
@@ -200,6 +221,22 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
 
     const handleMessageNew = (m: Msg) => {
       if (m.roomId !== roomId || !m.user?.id) return
+
+      console.log('📨 Socket message received:', {
+        messageId: m.id,
+        roomId: m.roomId,
+        userId: m.userId,
+        userFromMessage: m.user?.id,
+      })
+      
+      // Check if message already exists (from optimistic update or previous socket event)
+      const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
+      const exists = currentMessages.some((msg: Msg) => msg.id === m.id)
+      
+      if (exists) {
+        console.log('⚠️ Message already exists, skipping socket update:', m.id)
+        return
+      }
 
       const el = messagesContainerRef.current
       const atBottom = el ? isNearBottom(el, 100) : true
@@ -344,19 +381,28 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     setIsLoading(true)
     setError(null)
 
+    // Use DB user ID for optimistic message if available, otherwise session ID
+    const optimisticUserId = dbUserId || session.user.id
+    
     // Optimistic update
     const optimisticMessage: Msg = {
       id: `temp-${Date.now()}`,
       roomId,
-      userId: session.user.id,
+      userId: optimisticUserId,
       content,
       createdAt: new Date().toISOString(),
       user: {
-        id: session.user.id,
+        id: optimisticUserId, // Use DB user ID so it matches the real message
         name: session.user.name,
         image: session.user.image,
       },
     }
+
+    console.log('📤 Sending message (optimistic):', {
+      tempId: optimisticMessage.id,
+      userId: optimisticUserId,
+      content,
+    })
 
     upsertMessages(roomId, [optimisticMessage])
 
@@ -399,17 +445,34 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
         throw new Error('Invalid message format from server')
       }
 
-      // Remove optimistic and add real message (upsertMessages handles deduplication)
-      const currentMessages = room?.messages ?? []
+      // Remove optimistic and add real message
+      const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
       const filtered = currentMessages.filter((m: Msg) => m.id !== optimisticMessage.id)
+
+      console.log('📥 API response received:', {
+        savedMessageId: savedMessage.id,
+        savedUserId: savedMessage.user?.id,
+        optimisticId: optimisticMessage.id,
+      })
 
       // Check if saved message already exists (from Socket.io event)
       const exists = filtered.some((m: Msg) => m.id === savedMessage.id)
       if (!exists) {
-        upsertMessages(roomId, [savedMessage])
+        console.log('✅ Adding saved message from API response:', savedMessage.id)
+        // Replace optimistic with real message
+        const updated = [...filtered, savedMessage]
+        setRoom(roomId, { messages: updated })
       } else {
         // Already added via Socket.io, just remove optimistic
+        console.log('⚠️ Message already exists from socket, just removing optimistic:', savedMessage.id)
         setRoom(roomId, { messages: filtered })
+      }
+      
+      // Scroll to bottom after adding message
+      const el = messagesContainerRef.current
+      if (el) {
+        scrollToBottom(el)
+        setRoom(roomId, { scrollTop: el.scrollTop })
       }
     } catch (err: any) {
       // Remove optimistic message on error
@@ -473,7 +536,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
                 <MessageItem 
                   key={m.id} 
                   message={m} 
-                  currentUserId={session.user!.id} 
+                  currentUserId={dbUserId || session.user!.id} 
                 />
               ))}
             <div ref={messagesEndRef} />
@@ -492,13 +555,13 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Type a message..."
-            disabled={isLoading || isSwitchingRoom}
+            disabled={isLoading}
             className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
             rows={2}
           />
           <button
             onClick={sendMessage}
-            disabled={isLoading || !input.trim() || isSwitchingRoom}
+            disabled={isLoading || !input.trim()}
             className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg transition-colors flex-shrink-0"
           >
             Send
