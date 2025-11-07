@@ -122,6 +122,19 @@ async function startServer() {
         console.log(`👋 User ${userId} left room ${roomId}`)
       })
 
+      // Handle typing indicators
+      socket.on('typing:start', (data: { roomId: string; userId: string; userName: string }) => {
+        const { roomId, userId, userName } = data
+        // Broadcast to others in the room (not the sender)
+        socket.to(roomId).emit('typing:start', { userId, userName })
+      })
+
+      socket.on('typing:stop', (data: { roomId: string; userId: string }) => {
+        const { roomId, userId } = data
+        // Broadcast to others in the room (not the sender)
+        socket.to(roomId).emit('typing:stop', { userId })
+      })
+
       socket.on('disconnect', () => {
         console.log('🔌 Socket disconnected:', socket.id)
       })

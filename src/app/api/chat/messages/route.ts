@@ -131,7 +131,15 @@ export async function GET(request: Request) {
       orderBy: {
         createdAt: after ? 'asc' : 'desc', // Ascending for after, descending for cursor
       },
-      include: {
+      select: {
+        id: true,
+        roomId: true,
+        userId: true,
+        content: true,
+        createdAt: true,
+        editedAt: true,
+        deletedAt: true,
+        reactions: true,
         user: {
           select: {
             id: true,
@@ -264,7 +272,15 @@ export async function POST(request: Request) {
         userId: userId, // Use DB user ID
         content: validated.data.content,
       },
-      include: {
+      select: {
+        id: true,
+        roomId: true,
+        userId: true,
+        content: true,
+        createdAt: true,
+        editedAt: true,
+        deletedAt: true,
+        reactions: true,
         user: {
           select: {
             id: true,
@@ -285,6 +301,9 @@ export async function POST(request: Request) {
         userId: message.userId,
         content: message.content,
         createdAt: message.createdAt.toISOString(),
+        editedAt: message.editedAt?.toISOString() || null,
+        deletedAt: message.deletedAt?.toISOString() || null,
+        reactions: message.reactions || null,
         user: {
           id: message.user.id,
           name: message.user.name,

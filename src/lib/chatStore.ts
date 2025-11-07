@@ -7,6 +7,9 @@ export interface Message {
   userId: string
   content: string
   createdAt: string
+  editedAt?: string | null
+  deletedAt?: string | null
+  reactions?: Record<string, string[]> | null
   user: { id: string; name: string | null; image: string | null }
 }
 

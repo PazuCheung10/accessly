@@ -35,9 +35,15 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
   const [error, setError] = useState<string | null>(null)
   const [showToast, setShowToast] = useState(false)
   const [isRestoringScroll, setIsRestoringScroll] = useState(false)
-  
+  const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map()) // userId -> userName
+
   // Get DB user ID for comparison (fetch on mount)
   const [dbUserId, setDbUserId] = useState<string | null>(null)
+  
+  // Typing indicator debounce
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastTypingEmitRef = useRef<number>(0)
+  const typingTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map())
   
   useEffect(() => {
     if (session?.user?.email) {
@@ -285,7 +291,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, session?.user?.id])
 
-  // 4.4 Socket for live messages (only affect current room)
+  // 4.4 Socket for live messages and updates (only affect current room)
   useEffect(() => {
     if (!session?.user?.id) return
 
@@ -322,14 +328,105 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       }
     }
 
+    const handleMessageEdit = (data: { id: string; roomId: string; content: string; editedAt: string }) => {
+      if (data.roomId !== roomId) return
+
+      const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
+      const updated = currentMessages.map((msg) =>
+        msg.id === data.id
+          ? { ...msg, content: data.content, editedAt: data.editedAt }
+          : msg
+      )
+      setRoom(roomId, { messages: updated })
+    }
+
+    const handleMessageDelete = (data: { id: string; roomId: string; deletedAt: string }) => {
+      if (data.roomId !== roomId) return
+
+      const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
+      const updated = currentMessages.map((msg) =>
+        msg.id === data.id
+          ? { ...msg, content: '[Message deleted]', deletedAt: data.deletedAt }
+          : msg
+      )
+      setRoom(roomId, { messages: updated })
+    }
+
+    const handleMessageReaction = (data: { id: string; roomId: string; reactions: Record<string, string[]> }) => {
+      if (data.roomId !== roomId) return
+
+      const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
+      const updated = currentMessages.map((msg) =>
+        msg.id === data.id
+          ? { ...msg, reactions: data.reactions }
+          : msg
+      )
+      setRoom(roomId, { messages: updated })
+    }
+
+    const handleTypingStart = (data: { userId: string; userName: string }) => {
+      if (data.userId === dbUserId || data.userId === session.user?.id) return
+      
+      // Clear existing timeout for this user
+      const existingTimeout = typingTimeouts.current.get(data.userId)
+      if (existingTimeout) {
+        clearTimeout(existingTimeout)
+      }
+
+      setTypingUsers((prev) => {
+        const next = new Map(prev)
+        next.set(data.userId, data.userName || data.userId)
+        return next
+      })
+
+      // Auto-clear typing indicator after 5 seconds of inactivity
+      const timeout = setTimeout(() => {
+        setTypingUsers((prev) => {
+          const next = new Map(prev)
+          next.delete(data.userId)
+          return next
+        })
+        typingTimeouts.current.delete(data.userId)
+      }, 5000)
+
+      typingTimeouts.current.set(data.userId, timeout)
+    }
+
+    const handleTypingStop = (data: { userId: string }) => {
+      if (data.userId === dbUserId || data.userId === session.user?.id) return
+      
+      // Clear timeout
+      const timeout = typingTimeouts.current.get(data.userId)
+      if (timeout) {
+        clearTimeout(timeout)
+        typingTimeouts.current.delete(data.userId)
+      }
+
+      setTypingUsers((prev) => {
+        const next = new Map(prev)
+        next.delete(data.userId)
+        return next
+      })
+    }
+
     socket.on('message:new', handleMessageNew)
+    socket.on('message:edit', handleMessageEdit)
+    socket.on('message:delete', handleMessageDelete)
+    socket.on('message:reaction', handleMessageReaction)
+    socket.on('typing:start', handleTypingStart)
+    socket.on('typing:stop', handleTypingStop)
     socket.emit('room:join', { roomId, userId: session.user.id })
 
     return () => {
       socket.off('message:new', handleMessageNew)
+      socket.off('message:edit', handleMessageEdit)
+      socket.off('message:delete', handleMessageDelete)
+      socket.off('message:reaction', handleMessageReaction)
+      socket.off('typing:start', handleTypingStart)
+      socket.off('typing:stop', handleTypingStop)
       socket.emit('room:leave', { roomId, userId: session.user.id })
     }
-  }, [roomId, session?.user?.id, upsertMessages, setRoom])
+  }, [roomId, session?.user?.id, dbUserId, upsertMessages, setRoom])
 
   // 4.5 Track user scroll → remember per-room
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -597,10 +694,63 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     }
   }
 
+  // Handle typing indicator with debounce
+  const emitTyping = () => {
+    if (!session?.user?.id) return
+
+    const now = Date.now()
+    // Throttle typing events to max once per 3 seconds
+    if (now - lastTypingEmitRef.current < 3000) return
+
+    lastTypingEmitRef.current = now
+    const socket = initSocket(session.user.id)
+    socket.emit('typing:start', {
+      roomId,
+      userId: session.user.id,
+      userName: session.user.name || session.user.email || 'Someone',
+    })
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    // Stop typing after 5 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit('typing:stop', {
+        roomId,
+        userId: session.user.id,
+      })
+    }, 5000)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+    emitTyping()
+  }
+
+  const handleInputFocus = () => {
+    emitTyping()
+  }
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
+      // Clear typing indicator
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+        typingTimeoutRef.current = null
+      }
+      if (session?.user?.id) {
+        const socket = initSocket(session.user.id)
+        socket.emit('typing:stop', {
+          roomId,
+          userId: session.user.id,
+        })
+      }
       sendMessage()
+    } else {
+      emitTyping()
     }
   }
 
@@ -649,9 +799,21 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
                 <MessageItem 
                   key={m.id} 
                   message={m} 
-                  currentUserId={dbUserId || session.user!.id} 
+                  currentUserId={dbUserId || session.user!.id}
+                  onMessageUpdate={(messageId, updates) => {
+                    const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
+                    const updated = currentMessages.map((msg) =>
+                      msg.id === messageId ? { ...msg, ...updates } : msg
+                    )
+                    setRoom(roomId, { messages: updated })
+                  }}
                 />
               ))}
+            {typingUsers.size > 0 && (
+              <div className="text-xs text-slate-500 italic py-2">
+                {Array.from(typingUsers.values()).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </>
         )}
@@ -665,7 +827,8 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
         <div className="flex gap-2">
           <textarea
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
+            onFocus={handleInputFocus}
             onKeyPress={handleKeyPress}
             placeholder="Type a message..."
             disabled={isLoading}

@@ -87,13 +87,16 @@ model RoomMember {
 }
 
 model Message {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   roomId    String
   userId    String
   content   String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  editedAt  DateTime? // Timestamp when message was edited
+  deletedAt DateTime? // Timestamp when message was deleted (soft delete)
+  reactions Json?     // Map of emoji -> array of user IDs who reacted: { "👍": ["userId1", "userId2"], "❤️": ["userId3"] }
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
   @@index([roomId, createdAt(sort: Desc)])
 }
 
