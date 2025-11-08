@@ -16,7 +16,8 @@ interface RoomDetails {
   title: string
   description: string | null
   tags: string[]
-  type: 'PUBLIC' | 'PRIVATE' | 'DM'
+  type: 'PUBLIC' | 'PRIVATE' | 'DM' | 'TICKET'
+  status: 'OPEN' | 'WAITING' | 'RESOLVED' | null
   isPrivate: boolean
   userRole: RoomRole | null
   isMember: boolean
@@ -26,6 +27,18 @@ interface RoomDetails {
     email: string
     image: string | null
   }
+  owner: {
+    id: string
+    name: string | null
+    email: string
+    image: string | null
+  } | null
+  lastResponder: {
+    id: string
+    name: string | null
+    email: string
+  } | null
+  averageResponseTime: number | null
   _count: {
     members: number
     messages: number
@@ -34,21 +47,44 @@ interface RoomDetails {
 
 export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
   const { data: session } = useSession()
+  const router = useRouter()
   const [roomDetails, setRoomDetails] = useState<RoomDetails | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [showMembers, setShowMembers] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
+  const [showAssign, setShowAssign] = useState(false)
   const [editForm, setEditForm] = useState({
     title: '',
     description: '',
     tags: '',
   })
   const [inviteEmail, setInviteEmail] = useState('')
+  const [assignToUserId, setAssignToUserId] = useState('')
+  const [adminUsers, setAdminUsers] = useState<any[]>([])
+  const [isAssigning, setIsAssigning] = useState(false)
 
   useEffect(() => {
     fetchRoomDetails()
   }, [roomId])
+
+  useEffect(() => {
+    if (showAssign) {
+      fetchAdminUsers()
+    }
+  }, [showAssign])
+
+  const fetchAdminUsers = async () => {
+    try {
+      const response = await fetch('/api/admin/users?role=ADMIN')
+      const data = await response.json()
+      if (data.ok && data.data?.users) {
+        setAdminUsers(data.data.users)
+      }
+    } catch (err) {
+      console.error('Error fetching admin users:', err)
+    }
+  }
 
   const fetchRoomDetails = async () => {
     try {
@@ -159,6 +195,37 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
     }
   }
 
+  const handleAssign = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!assignToUserId) return
+
+    setIsAssigning(true)
+    try {
+      const response = await fetch(`/api/tickets/${roomId}/assign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ assignToUserId }),
+      })
+
+      const data = await response.json()
+      if (data.ok) {
+        setAssignToUserId('')
+        setShowAssign(false)
+        alert('Ticket assigned successfully')
+        fetchRoomDetails()
+      } else {
+        alert(data.message || 'Failed to assign ticket')
+      }
+    } catch (err) {
+      console.error('Error assigning ticket:', err)
+      alert('Failed to assign ticket')
+    } finally {
+      setIsAssigning(false)
+    }
+  }
+
   if (isLoading || !roomDetails) {
     return (
       <div className="px-6 py-4 border-b border-slate-800 flex-shrink-0">
@@ -171,11 +238,22 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
     ? { label: 'Public', color: 'bg-green-500/20 text-green-400 border-green-500/30' }
     : roomDetails.type === 'PRIVATE'
     ? { label: 'Private', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' }
+    : roomDetails.type === 'TICKET'
+    ? { label: 'Ticket', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' }
     : { label: 'DM', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' }
+
+  const statusBadge = roomDetails.status === 'OPEN'
+    ? { label: 'OPEN', color: 'bg-green-500/20 text-green-400 border-green-500/30' }
+    : roomDetails.status === 'WAITING'
+    ? { label: 'WAITING', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' }
+    : roomDetails.status === 'RESOLVED'
+    ? { label: 'RESOLVED', color: 'bg-slate-500/20 text-slate-400 border-slate-500/30' }
+    : null
 
   const canEdit = roomDetails.userRole === RoomRole.OWNER
   // DM rooms cannot have invites (only 2 members)
-  const canInvite = roomDetails.type !== 'DM' && (roomDetails.userRole === RoomRole.OWNER || roomDetails.userRole === RoomRole.MODERATOR)
+  const canInvite = roomDetails.type !== 'DM' && roomDetails.type !== 'TICKET' && (roomDetails.userRole === RoomRole.OWNER || roomDetails.userRole === RoomRole.MODERATOR)
+  const canAssign = roomDetails.type === 'TICKET' && roomDetails.userRole === RoomRole.OWNER
 
   return (
     <div className="px-6 py-4 border-b border-slate-800 flex-shrink-0">
@@ -240,6 +318,15 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
               ✏️
             </button>
           )}
+          {canAssign && (
+            <button
+              onClick={() => setShowAssign(!showAssign)}
+              className="px-3 py-1 text-sm bg-purple-600 hover:bg-purple-700 rounded"
+              title="Assign ticket"
+            >
+              👤 Assign
+            </button>
+          )}
           {canInvite && (
             <button
               onClick={() => setShowInvite(!showInvite)}
@@ -262,11 +349,16 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
         </div>
       </div>
 
-      {/* Badges */}
+      {/* Badges and Info */}
       <div className="flex flex-wrap items-center gap-2 mb-2">
         <span className={`px-2 py-1 text-xs font-semibold rounded border ${visibilityBadge.color}`}>
           {visibilityBadge.label}
         </span>
+        {statusBadge && (
+          <span className={`px-2 py-1 text-xs font-semibold rounded border ${statusBadge.color}`}>
+            {statusBadge.label}
+          </span>
+        )}
         {roomDetails.tags && roomDetails.tags.length > 0 && (
           <>
             {roomDetails.tags.map((tag) => (
@@ -285,6 +377,79 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
           </span>
         )}
       </div>
+
+      {/* Ticket-specific info */}
+      {roomDetails.type === 'TICKET' && (
+        <div className="mt-3 pt-3 border-t border-slate-800 space-y-2 text-sm">
+          {roomDetails.owner && (
+            <div className="flex items-center gap-2 text-slate-400">
+              <span className="font-medium text-slate-300">Assigned to:</span>
+              <span>{roomDetails.owner.name || roomDetails.owner.email}</span>
+            </div>
+          )}
+          {roomDetails.lastResponder && (
+            <div className="flex items-center gap-2 text-slate-400">
+              <span className="font-medium text-slate-300">Last responder:</span>
+              <span>{roomDetails.lastResponder.name || roomDetails.lastResponder.email}</span>
+            </div>
+          )}
+          {roomDetails.averageResponseTime !== null && (
+            <div className="flex items-center gap-2 text-slate-400">
+              <span className="font-medium text-slate-300">Avg response time:</span>
+              <span>{roomDetails.averageResponseTime} minutes</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Assign Modal */}
+      {showAssign && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Assign Ticket</h3>
+            <form onSubmit={handleAssign} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  Assign to Admin
+                </label>
+                <select
+                  value={assignToUserId}
+                  onChange={(e) => setAssignToUserId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white"
+                  required
+                >
+                  <option value="">Select an admin...</option>
+                  {adminUsers.map((admin) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.name || admin.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAssign(false)
+                    setAssignToUserId('')
+                  }}
+                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded"
+                  disabled={isAssigning}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded disabled:opacity-50"
+                  disabled={isAssigning || !assignToUserId}
+                >
+                  {isAssigning ? 'Assigning...' : 'Assign'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Invite Modal */}
       {showInvite && (

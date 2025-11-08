@@ -50,6 +50,7 @@ export async function GET(
         description: true,
         tags: true,
         type: true,
+        status: true,
         isPrivate: true,
         createdAt: true,
         creator: {
@@ -58,6 +59,21 @@ export async function GET(
             name: true,
             email: true,
             image: true,
+          },
+        },
+        members: {
+          where: {
+            role: 'OWNER',
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
           },
         },
         _count: {
@@ -89,6 +105,75 @@ export async function GET(
       }, { status: 403 })
     }
 
+    // For TICKET rooms, calculate response metrics
+    let lastResponder = null
+    let averageResponseTime = null
+
+    if (room.type === 'TICKET') {
+      // Get all messages ordered by creation time
+      const messages = await prisma.message.findMany({
+        where: { roomId },
+        select: {
+          id: true,
+          userId: true,
+          createdAt: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      })
+
+      if (messages.length > 0) {
+        // Last responder is the user of the last message
+        const lastMessage = messages[messages.length - 1]
+        lastResponder = {
+          id: lastMessage.user.id,
+          name: lastMessage.user.name,
+          email: lastMessage.user.email,
+        }
+
+        // Calculate average response time
+        // Response time = time between customer message and admin response
+        const responseTimes: number[] = []
+        let lastCustomerMessageTime: Date | null = null
+
+        for (const msg of messages) {
+          // Check if message is from a customer (not an admin/owner)
+          const msgMember = await prisma.roomMember.findUnique({
+            where: {
+              userId_roomId: {
+                userId: msg.userId,
+                roomId,
+              },
+            },
+            select: { role: true },
+          })
+
+          const isAdminResponse = msgMember?.role === 'OWNER' || msgMember?.role === 'MODERATOR'
+
+          if (!isAdminResponse) {
+            // Customer message - mark as start of response window
+            lastCustomerMessageTime = msg.createdAt
+          } else if (lastCustomerMessageTime) {
+            // Admin response - calculate time since last customer message
+            const responseTime = msg.createdAt.getTime() - lastCustomerMessageTime.getTime()
+            responseTimes.push(responseTime)
+            lastCustomerMessageTime = null
+          }
+        }
+
+        if (responseTimes.length > 0) {
+          const totalResponseTime = responseTimes.reduce((sum, time) => sum + time, 0)
+          averageResponseTime = Math.round(totalResponseTime / responseTimes.length / 1000 / 60) // Convert to minutes
+        }
+      }
+    }
+
     return Response.json({
       ok: true,
       code: 'SUCCESS',
@@ -98,6 +183,9 @@ export async function GET(
           ...room,
           userRole: membership?.role || null,
           isMember: !!membership,
+          owner: room.members[0]?.user || null,
+          lastResponder,
+          averageResponseTime,
         },
       },
     })
