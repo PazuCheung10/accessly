@@ -55,7 +55,7 @@ export async function POST(
       select: { type: true },
     })
 
-    if (!ticket || ticket.type !== 'TICKET') {
+    if (!ticket || ticket.type !== RoomType.TICKET) {
       return Response.json({
         ok: false,
         code: 'NOT_FOUND',

@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { Role, TicketStatus } from '@prisma/client'
+import { Role, TicketStatus, RoomType } from '@prisma/client'
 import { logAction } from '@/lib/audit'
 import { z } from 'zod'
 
@@ -63,7 +63,7 @@ export async function PATCH(
       select: { type: true, status: true, title: true },
     })
 
-    if (!ticket || ticket.type !== 'TICKET') {
+    if (!ticket || ticket.type !== RoomType.TICKET) {
       return Response.json({
         ok: false,
         code: 'NOT_FOUND',

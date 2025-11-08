@@ -39,12 +39,13 @@ export async function GET(request: Request) {
     const status = searchParams.get('status') as 'OPEN' | 'WAITING' | 'RESOLVED' | null
 
     // Fetch all tickets
+    const { RoomType, TicketStatus } = await import('@prisma/client')
     const where: any = {
-      type: 'TICKET',
+      type: RoomType.TICKET,
     }
 
     if (status) {
-      where.status = status
+      where.status = status as TicketStatus
     }
 
     const tickets = await prisma.room.findMany({
