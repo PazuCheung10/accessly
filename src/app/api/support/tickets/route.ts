@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { checkSupportFormRate } from '@/lib/rateLimit'
 import { z } from 'zod'
 import { Role } from '@prisma/client'
 
@@ -18,6 +19,23 @@ const TicketInput = z.object({
  */
 export async function POST(request: Request) {
   try {
+    // Rate limiting: use IP address for anonymous users
+    const forwarded = request.headers.get('x-forwarded-for')
+    const ip = forwarded ? forwarded.split(',')[0].trim() : request.headers.get('x-real-ip') || 'unknown'
+    
+    try {
+      checkSupportFormRate(ip)
+    } catch (error: any) {
+      if (error.code === 'RATE_LIMITED') {
+        return Response.json({
+          ok: false,
+          code: 'RATE_LIMITED',
+          message: error.message || "You're submitting support requests too fast",
+        }, { status: 429 })
+      }
+      throw error
+    }
+
     const body = await request.json()
 
     // Validate input

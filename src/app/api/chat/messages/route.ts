@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { MessageInput, Pagination } from '@/lib/validation'
-import { checkRate } from '@/lib/rateLimit'
+import { checkMessageRate } from '@/lib/rateLimit'
 import { getIO } from '@/lib/io'
 
 export const runtime = 'nodejs'
@@ -297,16 +297,16 @@ export async function POST(request: Request) {
     // Use DB user ID (source of truth)
     const userId = dbUser.id
 
-    // Rate limiting (use DB user ID)
+    // Message rate limiting: max 3 messages per 5 seconds (use DB user ID)
     try {
-      checkRate(userId)
+      checkMessageRate(userId)
     } catch (error: any) {
       if (error.code === 'RATE_LIMITED') {
         return Response.json({
           ok: false,
           code: 'RATE_LIMITED',
-          message: error.message,
-        })
+          message: error.message || "You're sending messages too fast",
+        }, { status: 429 })
       }
       throw error
     }
