@@ -594,7 +594,7 @@ async function main() {
     { content: 'I can help! Send me the ticket details.', author: admin2, parent: 3 },
   ]
 
-  const supportTeamRoom = createdPrivateRooms[0]
+  // Reuse supportTeamRoom from earlier (line 369)
   const supportRoomCreatedAt = supportTeamRoom.createdAt
   let supportMessageTime = addHours(supportRoomCreatedAt, 1)
   const supportCreatedMessages: { id: string; index: number }[] = []
