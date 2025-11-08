@@ -185,8 +185,18 @@ export default async function Home({
           },
         },
       },
-    },
-  })
+    })
+  } catch (discoverError: any) {
+    console.error('Error fetching discover rooms:', discoverError)
+    console.error('Error details:', {
+      message: discoverError.message,
+      code: discoverError.code,
+      name: discoverError.name,
+      stack: discoverError.stack,
+    })
+    // Continue with empty array if this fails
+    discoverRooms = []
+  }
 
   const hasMore = discoverRooms.length > limit
   const discoverRoomsToReturn = hasMore ? discoverRooms.slice(0, limit) : discoverRooms
