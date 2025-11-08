@@ -10,6 +10,7 @@ import { createAdapter } from '@socket.io/redis-adapter'
 import Redis from 'ioredis'
 import { prisma } from '../src/lib/prisma'
 import { setIO } from '../src/lib/io'
+import { setTelemetryIO, trackRoomMessage } from '../src/lib/telemetry'
 import { env } from '../src/lib/env'
 
 const dev = env.NODE_ENV !== 'production'
@@ -86,6 +87,7 @@ async function startServer() {
 
     // Set singleton for API routes to access
     setIO(io)
+    setTelemetryIO(io)
 
     // Socket.io connection handlers
     io.on('connection', (socket) => {
@@ -133,6 +135,14 @@ async function startServer() {
         const { roomId, userId } = data
         // Broadcast to others in the room (not the sender)
         socket.to(roomId).emit('typing:stop', { userId })
+      })
+
+      // Track socket latency with ping/pong
+      socket.on('ping', (startTime: number) => {
+        const latency = Date.now() - startTime
+        const { trackSocketLatency } = require('../src/lib/telemetry')
+        trackSocketLatency(latency)
+        socket.emit('pong', Date.now())
       })
 
       socket.on('disconnect', () => {

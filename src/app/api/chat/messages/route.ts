@@ -362,6 +362,16 @@ export async function POST(request: Request) {
       },
     })
 
+    // Track room activity for telemetry
+    const { trackRoomMessage } = await import('@/lib/telemetry')
+    const room = await prisma.room.findUnique({
+      where: { id: validated.data.roomId },
+      select: { title: true },
+    })
+    if (room) {
+      trackRoomMessage(validated.data.roomId, room.title)
+    }
+
     // Emit Socket.io event to room
     const io = getIO()
     if (io) {
