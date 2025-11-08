@@ -555,13 +555,21 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       // Handle URL deep-linking: expand thread if threadId is in URL
       if (threadId) {
         toggleThread(roomId, threadId)
-        // Scroll to thread after a brief delay
+        // Scroll to thread after messages are rendered
         setTimeout(() => {
           const element = document.getElementById(`message-${threadId}`)
           if (element) {
             element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          } else {
+            // If element not found, try scrolling after a longer delay
+            setTimeout(() => {
+              const retryElement = document.getElementById(`message-${threadId}`)
+              if (retryElement) {
+                retryElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }
+            }, 500)
           }
-        }, 100)
+        }, 200)
       }
     } catch (err) {
       console.error('Error fetching initial messages:', err)

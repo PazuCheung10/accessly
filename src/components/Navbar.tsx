@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 type Role = 'USER' | 'ADMIN'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { SearchBar } from './SearchBar'
 
 export function Navbar() {
   const { data: session, status } = useSession()
@@ -68,6 +69,10 @@ export function Navbar() {
           >
             Accessly
           </Link>
+
+          <div className="flex items-center gap-6 flex-1 max-w-2xl mx-6">
+            <SearchBar className="flex-1" />
+          </div>
 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-4">
