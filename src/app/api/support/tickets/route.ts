@@ -104,11 +104,12 @@ export async function POST(request: Request) {
     })
 
     // Add user as MEMBER
+    const { RoomRole } = await import('@prisma/client')
     await prisma.roomMember.create({
       data: {
         userId: user.id,
         roomId: ticketRoom.id,
-        role: 'MEMBER',
+        role: RoomRole.MEMBER,
       },
     })
 
@@ -117,7 +118,7 @@ export async function POST(request: Request) {
       data: {
         userId: admin.id,
         roomId: ticketRoom.id,
-        role: 'OWNER',
+        role: RoomRole.OWNER,
       },
     })
 
