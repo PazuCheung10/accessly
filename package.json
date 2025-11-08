@@ -22,6 +22,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "db:seed": "tsx src/data/seed.ts",
     "db:seed-demo": "tsx src/data/seed-demo.ts",
+    "db:seed-solacedesk": "tsx src/data/seed-solacedesk.ts",
     "db:check": "tsx src/data/check-memberships.ts",
     "db:diagnose": "tsx src/data/diagnose-chat.ts",
     "demo": "pnpm prisma migrate deploy --schema=src/prisma/schema.prisma && pnpm prisma:gen && pnpm db:seed-demo && pnpm start"
