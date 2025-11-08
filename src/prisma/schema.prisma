@@ -67,6 +67,7 @@ model Room {
   description String?       // Optional description
   isPrivate   Boolean       @default(false)
   type        RoomType      @default(PUBLIC)
+  status      TicketStatus? // For TICKET rooms: OPEN, WAITING, RESOLVED
   tags        String[]      // Array of tags
   creatorId   String?       // FK to User who created the room
   creator     User?         @relation("RoomCreator", fields: [creatorId], references: [id], onDelete: SetNull)
@@ -74,6 +75,7 @@ model Room {
   members     RoomMember[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+  @@index([type, status])
 }
 
 model RoomMember {
@@ -89,17 +91,21 @@ model RoomMember {
 }
 
 model Message {
-  id        String    @id @default(cuid())
-  roomId    String
-  userId    String
-  content   String
-  createdAt DateTime  @default(now())
-  editedAt  DateTime? // Timestamp when message was edited
-  deletedAt DateTime? // Timestamp when message was deleted (soft delete)
-  reactions Json?     // Map of emoji -> array of user IDs who reacted: { "👍": ["userId1", "userId2"], "❤️": ["userId3"] }
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  id             String    @id @default(cuid())
+  roomId         String
+  userId         String
+  content        String
+  parentMessageId String?  // For threading: reference to parent message
+  parentMessage  Message? @relation("MessageThread", fields: [parentMessageId], references: [id], onDelete: Cascade)
+  replies        Message[] @relation("MessageThread")
+  createdAt      DateTime  @default(now())
+  editedAt       DateTime? // Timestamp when message was edited
+  deletedAt      DateTime? // Timestamp when message was deleted (soft delete)
+  reactions      Json?     // Map of emoji -> array of user IDs who reacted: { "👍": ["userId1", "userId2"], "❤️": ["userId3"] }
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room           Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
   @@index([roomId, createdAt(sort: Desc)])
+  @@index([parentMessageId])
 }
 
 enum Role {
@@ -117,6 +123,13 @@ enum RoomType {
   PUBLIC
   PRIVATE
   DM
+  TICKET
+}
+
+enum TicketStatus {
+  OPEN
+  WAITING
+  RESOLVED
 }
 
 // Audit log for admin/moderation actions

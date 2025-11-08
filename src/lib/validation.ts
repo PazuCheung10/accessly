@@ -6,6 +6,7 @@ import { z } from 'zod'
 export const MessageInput = z.object({
   roomId: z.string().cuid(),
   content: z.string().min(1).max(5000),
+  parentMessageId: z.string().cuid().optional().nullable(),
 })
 
 /**

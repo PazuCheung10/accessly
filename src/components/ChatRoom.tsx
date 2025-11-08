@@ -2,10 +2,12 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { initSocket } from '@/lib/socket'
 import { useChatStore, Message as Msg } from '@/lib/chatStore'
 import { isNearBottom, scrollToBottom, preserveScrollOnPrepend } from '@/lib/scroll'
 import { MessageItem } from './MessageItem'
+import { ThreadView } from './ThreadView'
 import { PresenceBar } from './PresenceBar'
 import { RoomHeader } from './rooms/RoomHeader'
 
@@ -21,13 +23,23 @@ interface ChatRoomProps {
 
 export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessagesLoaded }: ChatRoomProps) {
   const { data: session } = useSession()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   
   // Subscribe to the room slice directly (not via getter method)
   const room = useChatStore((s) => s.rooms[roomId])
   const setRoom = useChatStore((s) => s.setRoom)
   const upsertMessages = useChatStore((s) => s.upsertMessages)
+  const toggleThread = useChatStore((s) => s.toggleThread)
+  const isThreadExpanded = useChatStore((s) => s.isThreadExpanded)
 
   const messages: Msg[] = room?.messages ?? []
+  
+  // Get thread ID from URL
+  const threadId = searchParams.get('thread')
+  
+  // Track replying to a message
+  const [replyingTo, setReplyingTo] = useState<string | null>(null)
 
   const [input, setInput] = useState(() => unsentMessages[roomId] || '')
   const [isLoading, setIsLoading] = useState(false)
@@ -304,6 +316,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
         messageId: m.id,
         roomId: m.roomId,
         userId: m.userId,
+        parentMessageId: m.parentMessageId,
         userFromMessage: m.user?.id,
       })
       
@@ -321,8 +334,13 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
 
       upsertMessages(roomId, [m])
 
-      // Only snap to bottom if at/near bottom already
-      if (el && atBottom) {
+      // If it's a reply and the thread is expanded, auto-expand if not already
+      if (m.parentMessageId && !isThreadExpanded(roomId, m.parentMessageId)) {
+        toggleThread(roomId, m.parentMessageId)
+      }
+
+      // Only snap to bottom if at/near bottom already (or if it's a reply to an expanded thread)
+      if (el && (atBottom || (m.parentMessageId && isThreadExpanded(roomId, m.parentMessageId)))) {
         scrollToBottom(el)
         setRoom(roomId, { scrollTop: el.scrollTop })
       }
@@ -510,7 +528,22 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       setIsLoadingMessages(true)
       const res = await fetch(`/api/chat/messages?roomId=${roomId}&limit=50`)
       const json = await res.json()
-      msgs = (json.data?.messages ?? json.messages ?? []).filter((m: Msg) => m.user?.id)
+      
+      // Use hierarchical messages if available, otherwise fall back to flat
+      const hierarchical = json.data?.hierarchicalMessages
+      if (hierarchical) {
+        // Flatten hierarchical structure for storage
+        const flatMsgs: Msg[] = hierarchical.flatMap((msg: any) => {
+          const base: Msg = {
+            ...msg,
+            replies: msg.replies || []
+          }
+          return [base, ...(msg.replies || [])]
+        })
+        msgs = flatMsgs.filter((m: Msg) => m.user?.id)
+      } else {
+        msgs = (json.data?.messages ?? json.messages ?? []).filter((m: Msg) => m.user?.id)
+      }
 
       // Store messages (even if empty); also set cursor & lastMessageId
       // Note: upsertMessages will create room entry, but we track initial fetch with ref
@@ -518,6 +551,18 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       const newest = msgs[msgs.length - 1]?.id ?? null
       upsertMessages(roomId, msgs)
       setRoom(roomId, { cursor: oldest, lastMessageId: newest })
+      
+      // Handle URL deep-linking: expand thread if threadId is in URL
+      if (threadId) {
+        toggleThread(roomId, threadId)
+        // Scroll to thread after a brief delay
+        setTimeout(() => {
+          const element = document.getElementById(`message-${threadId}`)
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }, 100)
+      }
     } catch (err) {
       console.error('Error fetching initial messages:', err)
       setError('Failed to load messages')
@@ -577,15 +622,42 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     }
   }
 
+  // Handle reply to a message
+  const handleReply = (messageId: string) => {
+    setReplyingTo(messageId)
+    // Update URL to include thread parameter
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('thread', messageId)
+    router.push(`?${params.toString()}`, { scroll: false })
+    // Expand thread if not already expanded
+    if (!isThreadExpanded(roomId, messageId)) {
+      toggleThread(roomId, messageId)
+    }
+    // Focus input
+    setTimeout(() => {
+      const textarea = document.querySelector('textarea') as HTMLTextAreaElement
+      if (textarea) textarea.focus()
+    }, 100)
+  }
+
   // Send message function
   const sendMessage = async () => {
     if (!input.trim() || !session?.user?.id) return
 
     const content = input.trim()
+    const parentMessageId = replyingTo
     setInput('')
+    setReplyingTo(null)
     unsentMessages[roomId] = ''
     setIsLoading(true)
     setError(null)
+    
+    // Clear thread parameter from URL if replying
+    if (parentMessageId) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete('thread')
+      router.push(`?${params.toString()}`, { scroll: false })
+    }
 
     // Use DB user ID for optimistic message if available, otherwise session ID
     const optimisticUserId = dbUserId || session.user.id
@@ -596,6 +668,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       roomId,
       userId: optimisticUserId,
       content,
+      parentMessageId: parentMessageId || null,
       createdAt: new Date().toISOString(),
       user: {
         id: optimisticUserId, // Use DB user ID so it matches the real message
@@ -608,6 +681,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       tempId: optimisticMessage.id,
       userId: optimisticUserId,
       content,
+      parentMessageId,
     })
 
     upsertMessages(roomId, [optimisticMessage])
@@ -621,6 +695,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
         body: JSON.stringify({
           roomId,
           content,
+          parentMessageId: parentMessageId || null,
         }),
       })
 
@@ -793,22 +868,63 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
                 Loading older messages...
               </div>
             )}
-            {messages
-              .filter((m) => m.user?.id) // Filter out messages without user.id
-              .map((m) => (
-                <MessageItem 
-                  key={m.id} 
-                  message={m} 
-                  currentUserId={dbUserId || session.user!.id}
-                  onMessageUpdate={(messageId, updates) => {
-                    const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
-                    const updated = currentMessages.map((msg) =>
-                      msg.id === messageId ? { ...msg, ...updates } : msg
-                    )
-                    setRoom(roomId, { messages: updated })
-                  }}
-                />
-              ))}
+            {(() => {
+              // Filter to only root messages (no parentMessageId)
+              const rootMessages = messages.filter((m) => m.user?.id && !m.parentMessageId)
+              
+              return rootMessages.map((m) => {
+                // Get replies for this message
+                const replies = messages.filter((reply) => reply.parentMessageId === m.id)
+                const replyCount = replies.length
+                const expanded = isThreadExpanded(roomId, m.id)
+                
+                return (
+                  <div key={m.id} id={`message-${m.id}`}>
+                    <MessageItem 
+                      message={m} 
+                      currentUserId={dbUserId || session.user!.id}
+                      roomId={roomId}
+                      onMessageUpdate={(messageId, updates) => {
+                        const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
+                        const updated = currentMessages.map((msg) =>
+                          msg.id === messageId ? { ...msg, ...updates } : msg
+                        )
+                        setRoom(roomId, { messages: updated })
+                      }}
+                      onReply={handleReply}
+                      replyCount={replyCount}
+                    />
+                    {/* Show thread if expanded or if URL has thread parameter */}
+                    {(expanded || threadId === m.id) && replyCount > 0 && (
+                      <ThreadView
+                        parentMessage={m}
+                        replies={replies}
+                        currentUserId={dbUserId || session.user!.id}
+                        roomId={roomId}
+                        onMessageUpdate={(messageId, updates) => {
+                          const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
+                          const updated = currentMessages.map((msg) =>
+                            msg.id === messageId ? { ...msg, ...updates } : msg
+                          )
+                          setRoom(roomId, { messages: updated })
+                        }}
+                        onReply={handleReply}
+                      />
+                    )}
+                    {/* Collapsed thread indicator */}
+                    {!expanded && replyCount > 0 && (
+                      <button
+                        onClick={() => toggleThread(roomId, m.id)}
+                        className="ml-8 mt-1 text-xs text-slate-400 hover:text-slate-300 flex items-center gap-1"
+                      >
+                        <span>▼</span>
+                        <span>Show {replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
+                      </button>
+                    )}
+                  </div>
+                )
+              })
+            })()}
             {typingUsers.size > 0 && (
               <div className="text-xs text-slate-500 italic py-2">
                 {Array.from(typingUsers.values()).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
@@ -825,12 +941,39 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
           <div className="mb-2 text-red-400 text-sm">{error}</div>
         )}
         <div className="flex gap-2">
+          {replyingTo && (() => {
+            const replyingToMessage = messages.find((m) => m.id === replyingTo)
+            return (
+              <div className="mb-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 flex items-center justify-between">
+                <span>
+                  Replying to <span className="font-medium">{replyingToMessage?.user?.name || 'message'}</span>
+                  {replyingToMessage?.content && (
+                    <span className="text-slate-500 ml-2">
+                      {replyingToMessage.content.slice(0, 50)}
+                      {replyingToMessage.content.length > 50 ? '...' : ''}
+                    </span>
+                  )}
+                </span>
+                <button
+                  onClick={() => {
+                    setReplyingTo(null)
+                    const params = new URLSearchParams(searchParams.toString())
+                    params.delete('thread')
+                    router.push(`?${params.toString()}`, { scroll: false })
+                  }}
+                  className="text-slate-400 hover:text-slate-200"
+                >
+                  ✕
+                </button>
+              </div>
+            )
+          })()}
           <textarea
             value={input}
             onChange={handleInputChange}
             onFocus={handleInputFocus}
             onKeyPress={handleKeyPress}
-            placeholder="Type a message..."
+            placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
             disabled={isLoading}
             className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
             rows={2}

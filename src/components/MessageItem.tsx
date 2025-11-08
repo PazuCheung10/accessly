@@ -11,6 +11,7 @@ interface MessageItemProps {
     editedAt?: string | null
     deletedAt?: string | null
     reactions?: Record<string, string[]> | null
+    parentMessageId?: string | null
     user: {
       id: string
       name: string | null
@@ -18,12 +19,16 @@ interface MessageItemProps {
     }
   }
   currentUserId: string
+  roomId?: string
   onMessageUpdate?: (messageId: string, updates: Partial<MessageItemProps['message']>) => void
+  onReply?: (messageId: string) => void
+  isReply?: boolean
+  replyCount?: number
 }
 
 const COMMON_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
 
-export function MessageItem({ message, currentUserId, onMessageUpdate }: MessageItemProps) {
+export function MessageItem({ message, currentUserId, roomId, onMessageUpdate, onReply, isReply = false, replyCount = 0 }: MessageItemProps) {
   const { data: session } = useSession()
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
@@ -286,7 +291,7 @@ Text Preview: ${result.textSnippet.slice(0, 200)}
   }
 
   return (
-    <div className={`flex gap-3 group ${isOwn ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex gap-3 group ${isOwn ? 'flex-row-reverse' : ''} ${isReply ? 'ml-8' : ''}`}>
       <div className={`flex flex-col max-w-[70%] relative ${isOwn ? 'items-end' : 'items-start'}`}>
         <div className="flex items-center gap-2 mb-1">
           {!isOwn && (
@@ -340,26 +345,37 @@ Text Preview: ${result.textSnippet.slice(0, 200)}
               <p className="text-sm whitespace-pre-wrap break-words">
                 {isDeleted ? '[Message deleted]' : message.content}
               </p>
-              {/* Edit/Delete buttons - positioned on the side */}
-              {canEdit && withinEditWindow && (
-                <div className={`absolute ${isOwn ? '-left-12' : '-right-12'} top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
+              {/* Edit/Delete/Reply buttons - positioned on the side */}
+              <div className={`absolute ${isOwn ? '-left-12' : '-right-12'} top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                {!isDeleted && onReply && (
                   <button
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => onReply(message.id)}
                     className="p-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
-                    title="Edit message"
+                    title="Reply to message"
                   >
-                    ✏️
+                    💬
                   </button>
-                  <button
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                    className="p-1 text-xs bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
-                    title="Delete message"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              )}
+                )}
+                {canEdit && withinEditWindow && (
+                  <>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="p-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
+                      title="Edit message"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="p-1 text-xs bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
+                      title="Delete message"
+                    >
+                      🗑️
+                    </button>
+                  </>
+                )}
+              </div>
               {/* Test button - always visible on right side for debugging */}
               {!isDeleted && (
                 <div className={`absolute ${isOwn ? '-left-16' : '-right-16'} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity`}>
@@ -404,6 +420,17 @@ Text Preview: ${result.textSnippet.slice(0, 200)}
                 </div>
               )}
             </div>
+
+            {/* Reply count indicator */}
+            {!isDeleted && replyCount > 0 && (
+              <button
+                onClick={() => onReply?.(message.id)}
+                className="mt-1 text-xs text-slate-400 hover:text-slate-300 flex items-center gap-1"
+              >
+                <span>💬</span>
+                <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
+              </button>
+            )}
 
             {/* Reaction badges - show below message, always visible */}
             {!isDeleted && !isOwn && (() => {

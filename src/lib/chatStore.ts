@@ -6,11 +6,13 @@ export interface Message {
   roomId: string
   userId: string
   content: string
+  parentMessageId?: string | null
   createdAt: string
   editedAt?: string | null
   deletedAt?: string | null
   reactions?: Record<string, string[]> | null
   user: { id: string; name: string | null; image: string | null }
+  replies?: Message[] // For hierarchical structure
 }
 
 type RoomState = {
@@ -23,15 +25,19 @@ type RoomState = {
 
 type ChatStore = {
   rooms: Record<string, RoomState>
+  expandedThreads: Record<string, string[]> // roomId -> array of expanded message IDs (for persistence)
   setRoom: (roomId: string, patch: Partial<RoomState>) => void
   getRoom: (roomId: string) => RoomState | undefined
   upsertMessages: (roomId: string, msgs: Message[], { asPrepend }?: { asPrepend?: boolean }) => void
+  toggleThread: (roomId: string, messageId: string) => void
+  isThreadExpanded: (roomId: string, messageId: string) => boolean
 }
 
 export const useChatStore = create<ChatStore>()(
   persist(
     (set, get) => ({
       rooms: {},
+      expandedThreads: {},
 
       getRoom: (roomId) => get().rooms[roomId],
 
@@ -55,7 +61,29 @@ export const useChatStore = create<ChatStore>()(
               [roomId]: { ...r, messages: merged, lastMessageId: newest, cursor: oldest, lastFetchedAt: Date.now() }
             }
           }
-        })
+        }),
+
+      toggleThread: (roomId, messageId) =>
+        set(s => {
+          const threads = s.expandedThreads[roomId] ?? []
+          const threadSet = new Set(threads)
+          if (threadSet.has(messageId)) {
+            threadSet.delete(messageId)
+          } else {
+            threadSet.add(messageId)
+          }
+          return {
+            expandedThreads: {
+              ...s.expandedThreads,
+              [roomId]: Array.from(threadSet)
+            }
+          }
+        }),
+
+      isThreadExpanded: (roomId, messageId) => {
+        const threads = get().expandedThreads[roomId]
+        return threads ? threads.includes(messageId) : false
+      }
     }),
     { name: 'accessly-chat-store' } // localStorage key
   )

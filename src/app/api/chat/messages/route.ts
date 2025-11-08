@@ -112,8 +112,9 @@ export async function GET(request: Request) {
       }, { status: 403 })
     }
 
-    // Fetch messages
-    const messages = await prisma.message.findMany({
+    // Fetch all messages in room (including replies) for hierarchical structure
+    // Note: We fetch more than limit to ensure we get all replies for root messages
+    const allMessages = await prisma.message.findMany({
       where: {
         roomId,
         ...(cursor && {
@@ -127,7 +128,7 @@ export async function GET(request: Request) {
           },
         }),
       },
-      take: limit,
+      take: limit * 3, // Fetch more to account for replies
       orderBy: {
         createdAt: after ? 'asc' : 'desc', // Ascending for after, descending for cursor
       },
@@ -136,6 +137,7 @@ export async function GET(request: Request) {
         roomId: true,
         userId: true,
         content: true,
+        parentMessageId: true,
         createdAt: true,
         editedAt: true,
         deletedAt: true,
@@ -150,15 +152,76 @@ export async function GET(request: Request) {
       },
     })
 
-    // Reverse to get chronological order (oldest first) - only if using cursor (descending order)
-    // If using 'after', messages are already in ascending order
-    const orderedMessages = after ? messages : messages.reverse()
-    const nextCursor = orderedMessages.length > 0 ? orderedMessages[0].id : null
+    // Build hierarchical structure: separate root messages and replies
+    const rootMessages: typeof allMessages = []
+    const repliesByParent = new Map<string, typeof allMessages>()
+    
+    for (const msg of allMessages) {
+      if (msg.parentMessageId) {
+        const replies = repliesByParent.get(msg.parentMessageId) || []
+        replies.push(msg)
+        repliesByParent.set(msg.parentMessageId, replies)
+      } else {
+        rootMessages.push(msg)
+      }
+    }
+
+    // Sort replies chronologically for each parent
+    repliesByParent.forEach((replies) => {
+      replies.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    })
+
+    // Sort root messages chronologically
+    rootMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+    // Build hierarchical structure: attach replies to their parents
+    const hierarchicalMessages = rootMessages.map((msg) => {
+      const replies = repliesByParent.get(msg.id) || []
+      return {
+        ...msg,
+        replies: replies.map((r) => ({
+          id: r.id,
+          roomId: r.roomId,
+          userId: r.userId,
+          content: r.content,
+          parentMessageId: r.parentMessageId,
+          createdAt: r.createdAt.toISOString(),
+          editedAt: r.editedAt?.toISOString() || null,
+          deletedAt: r.deletedAt?.toISOString() || null,
+          reactions: r.reactions,
+          user: r.user,
+        })),
+      }
+    })
+
+    // Convert to flat list for backward compatibility, but include replies structure
+    const flatMessages = hierarchicalMessages.flatMap((msg) => {
+      const base = {
+        id: msg.id,
+        roomId: msg.roomId,
+        userId: msg.userId,
+        content: msg.content,
+        parentMessageId: msg.parentMessageId,
+        createdAt: msg.createdAt.toISOString(),
+        editedAt: msg.editedAt?.toISOString() || null,
+        deletedAt: msg.deletedAt?.toISOString() || null,
+        reactions: msg.reactions,
+        user: msg.user,
+        replies: msg.replies,
+      }
+      return [base, ...msg.replies]
+    })
+
+    // For pagination, we need to track the oldest root message ID
+    const orderedMessages = after ? flatMessages : flatMessages.reverse()
+    const nextCursor = rootMessages.length > 0 ? rootMessages[0].id : null
 
     console.log('GET /api/chat/messages - Found messages:', {
       roomId,
       userId,
-      count: orderedMessages.length,
+      totalCount: allMessages.length,
+      rootCount: rootMessages.length,
+      repliesCount: allMessages.length - rootMessages.length,
       hasMessages: orderedMessages.length > 0,
       firstMessageId: orderedMessages[0]?.id,
       lastMessageId: orderedMessages[orderedMessages.length - 1]?.id,
@@ -168,8 +231,14 @@ export async function GET(request: Request) {
       ok: true,
       data: {
         messages: orderedMessages,
+        hierarchicalMessages: hierarchicalMessages.map((msg) => ({
+          ...msg,
+          createdAt: msg.createdAt.toISOString(),
+          editedAt: msg.editedAt?.toISOString() || null,
+          deletedAt: msg.deletedAt?.toISOString() || null,
+        })),
         cursor: nextCursor,
-        hasMore: messages.length === limit,
+        hasMore: allMessages.length >= limit,
       },
     })
   } catch (error: any) {
@@ -271,12 +340,14 @@ export async function POST(request: Request) {
         roomId: validated.data.roomId,
         userId: userId, // Use DB user ID
         content: validated.data.content,
+        parentMessageId: validated.data.parentMessageId || null,
       },
       select: {
         id: true,
         roomId: true,
         userId: true,
         content: true,
+        parentMessageId: true,
         createdAt: true,
         editedAt: true,
         deletedAt: true,
@@ -300,6 +371,7 @@ export async function POST(request: Request) {
         roomId: message.roomId,
         userId: message.userId,
         content: message.content,
+        parentMessageId: message.parentMessageId,
         createdAt: message.createdAt.toISOString(),
         editedAt: message.editedAt?.toISOString() || null,
         deletedAt: message.deletedAt?.toISOString() || null,
