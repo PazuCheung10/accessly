@@ -13,6 +13,65 @@ Built with Next.js 15, TypeScript, Tailwind CSS, NextAuth, Prisma, PostgreSQL, a
 - **Server**: Custom Node.js HTTP server with Socket.io (runs on port 3000)
 - **Single Process**: One Next.js server handles both (runs on port 3000)
 
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Client Browser                            │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │   React UI   │  │  Socket.io   │  │   Zustand    │      │
+│  │  Components  │  │   Client     │  │    Store     │      │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
+│         │                  │                 │              │
+└─────────┼──────────────────┼─────────────────┼──────────────┘
+          │                  │                 │
+          │ HTTP/REST        │ WebSocket       │ localStorage
+          │                  │                 │
+┌─────────┼──────────────────┼─────────────────┼──────────────┐
+│         │                  │                 │              │
+│  ┌──────▼──────────────────▼─────────────────▼──────┐     │
+│  │         Next.js Server (Port 3000)                │     │
+│  │                                                    │     │
+│  │  ┌────────────────────────────────────────────┐   │     │
+│  │  │  API Routes (/api/*)                      │   │     │
+│  │  │  • /api/chat/messages                      │   │     │
+│  │  │  • /api/search                             │   │     │
+│  │  │  • /api/tickets                            │   │     │
+│  │  │  • /api/admin/*                            │   │     │
+│  │  └────────────────────────────────────────────┘   │     │
+│  │                                                    │     │
+│  │  ┌────────────────────────────────────────────┐   │     │
+│  │  │  Socket.io Server                          │   │     │
+│  │  │  • Real-time messaging                     │   │     │
+│  │  │  • Presence tracking                      │   │     │
+│  │  │  • Typing indicators                      │   │     │
+│  │  └────────────────────────────────────────────┘   │     │
+│  │                                                    │     │
+│  │  ┌────────────────────────────────────────────┐   │     │
+│  │  │  Prisma ORM                                │   │     │
+│  │  │  • Type-safe database access               │   │     │
+│  │  │  • Query optimization                      │   │     │
+│  │  │  • Migration management                    │   │     │
+│  │  └────────────────────────────────────────────┘   │     │
+│  └────────────────────┬───────────────────────────────┘     │
+│                       │                                       │
+└───────────────────────┼───────────────────────────────────────┘
+                        │
+            ┌───────────▼───────────┐
+            │   PostgreSQL          │
+            │   • Full-text search  │
+            │   • tsvector indexes  │
+            │   • ACID transactions │
+            └───────────────────────┘
+```
+
+### Data Flow
+
+1. **User Action** → React Component → API Route Handler
+2. **API Handler** → Prisma ORM → PostgreSQL
+3. **Database Change** → Socket.io Broadcast → All Connected Clients
+4. **Client Receives** → Zustand Store Update → UI Re-render
+
 See [ARCHITECTURE_EXPLAINED.md](./ARCHITECTURE_EXPLAINED.md) for details.
 
 ## Features
@@ -717,6 +776,113 @@ pnpm check:ssg        # Check SSG safety
 - **Optimized useEffect dependencies**: Depend on `status` instead of entire `session` object
 - **Reduced re-renders**: Client component tree doesn't remount on benign changes
 - **Stable state**: Zustand persist prevents state loss during browser events
+
+## Demo Script
+
+For recruiters and potential clients, we provide a comprehensive demo script that walks through all key features.
+
+**See [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) for the complete 5-7 minute demo flow.**
+
+Quick demo steps:
+1. Start server: `pnpm dev:server`
+2. Seed data: `pnpm db:seed-demo`
+3. Login: `admin@solace.com` / `demo123`
+4. Follow the demo script to showcase:
+   - Threading system
+   - Ticket management
+   - Full-text search
+   - Real-time features
+   - Export & audit logging
+   - Observability dashboard
+
+## Screenshots
+
+> **Note**: Screenshots should be added to showcase the UI. Recommended screenshots:
+> - Home page with room discovery
+> - Chat interface with threading
+> - Ticket management dashboard
+> - Search results with highlighting
+> - Admin observability dashboard
+> - Audit log viewer
+
+**Screenshot locations** (to be added):
+- `/docs/screenshots/home-page.png` - Room discovery page
+- `/docs/screenshots/chat-threading.png` - Threaded conversations
+- `/docs/screenshots/ticket-management.png` - Ticket dashboard
+- `/docs/screenshots/search-results.png` - Search with highlighting
+- `/docs/screenshots/telemetry.png` - Observability dashboard
+- `/docs/screenshots/audit-log.png` - Audit log viewer
+
+## Testing
+
+### Test Coverage
+
+The project includes comprehensive test coverage:
+
+- **Unit Tests**: Core utilities, helpers, and business logic
+- **API Tests**: All API endpoints with authentication and authorization
+- **Component Tests**: React components with user interactions
+- **Integration Tests**: End-to-end workflows (threading, tickets, search)
+
+### Running Tests
+
+```bash
+# Run all tests
+pnpm test
+
+# Watch mode (development)
+pnpm test:watch
+
+# UI mode (interactive)
+pnpm test:ui
+
+# Coverage report
+pnpm test:coverage
+```
+
+### Test Structure
+
+```
+src/tests/
+├── unit/              # Unit tests for utilities
+│   ├── audit.test.ts
+│   ├── threading.test.ts
+│   ├── tickets.test.ts
+│   ├── rateLimit.test.ts
+│   ├── validation.test.ts
+│   └── search.test.ts
+├── api/               # API endpoint tests
+│   ├── audit.test.ts
+│   ├── threading.test.ts
+│   ├── tickets.test.ts
+│   ├── messages.test.ts
+│   └── search.test.ts
+└── components/         # Component tests
+    ├── ThreadView.test.tsx
+    ├── MessageItem.test.tsx
+    ├── SearchResults.test.tsx
+    └── ChatRoom.test.tsx
+```
+
+### Key Test Scenarios
+
+**Threading Tests:**
+- Creating threaded replies
+- Expanding/collapsing threads
+- Deep-linking to threads
+- Thread persistence
+
+**Search Tests:**
+- Full-text search queries
+- Result highlighting
+- Complex query syntax (`from:`, `tag:`, `before:`)
+- Snippet extraction
+
+**API Tests:**
+- Authentication & authorization
+- Rate limiting
+- Error handling
+- Data validation
 
 ## License
 
