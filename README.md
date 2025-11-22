@@ -4,6 +4,40 @@ Enterprise-grade realtime chat and helpdesk platform with role-based authenticat
 
 Built with Next.js 15, TypeScript, Tailwind CSS, NextAuth, Prisma, PostgreSQL, and Socket.io.
 
+## Product Overview
+
+**Accessly** is a **Forum + Chat hybrid platform** that combines the best of both worlds: the discoverability and organization of forums with the real-time interactivity of modern chat applications.
+
+### Why Forum + Chat?
+
+Traditional forums are great for organized, searchable discussions but lack real-time engagement. Modern chat apps excel at instant communication but struggle with context and discoverability. Accessly bridges this gap:
+
+- **Forum-Style Discovery**: Browse and search public rooms like a forum, with tags, categories, and full-text search
+- **Real-Time Chat**: Instant messaging with Socket.io, typing indicators, and presence tracking
+- **Threaded Conversations**: Reply to specific messages creating nested threads (like Slack/Discord)
+- **Persistent Context**: All conversations are searchable and archived, maintaining context over time
+- **Hybrid Use Cases**: 
+  - **Team Collaboration**: Public rooms for team discussions, private rooms for sensitive topics
+  - **Customer Support**: Public ticket submission with threaded agent responses
+  - **Community Forums**: Discoverable public rooms with real-time engagement
+
+### Key Differentiators
+
+1. **Smart Caching**: Per-room message caching with Zustand persistence - switch rooms instantly without refetching
+2. **Scroll Memory**: Exact scroll position remembered per room, even after browser restarts
+3. **Incremental Loading**: Only fetches new messages since last visit, not entire history
+4. **Flash-Free Navigation**: Smooth room switching without visual jumps or loading states
+5. **Resilient State**: Survives tab switches, page refreshes, and OS tab purges
+6. **Full-Text Search**: PostgreSQL tsvector with complex query syntax (`from:@alice tag:billing`)
+7. **Enterprise Features**: RBAC, audit logging, observability dashboard, export capabilities
+
+### Use Cases
+
+- **Enterprise Teams**: Internal collaboration with public/private rooms, threaded discussions, and search
+- **Customer Support**: Public ticket system with agent assignment, status tracking, and metrics
+- **Community Platforms**: Discoverable forums with real-time chat engagement
+- **Helpdesk Systems**: Ticket management with threaded conversations and audit trails
+
 ## Architecture
 
 **Next.js is a full-stack framework** - it combines frontend and backend in one application:
@@ -15,55 +49,16 @@ Built with Next.js 15, TypeScript, Tailwind CSS, NextAuth, Prisma, PostgreSQL, a
 
 ### Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Client Browser                            │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   React UI   │  │  Socket.io   │  │   Zustand    │      │
-│  │  Components  │  │   Client     │  │    Store     │      │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
-│         │                  │                 │              │
-└─────────┼──────────────────┼─────────────────┼──────────────┘
-          │                  │                 │
-          │ HTTP/REST        │ WebSocket       │ localStorage
-          │                  │                 │
-┌─────────┼──────────────────┼─────────────────┼──────────────┐
-│         │                  │                 │              │
-│  ┌──────▼──────────────────▼─────────────────▼──────┐     │
-│  │         Next.js Server (Port 3000)                │     │
-│  │                                                    │     │
-│  │  ┌────────────────────────────────────────────┐   │     │
-│  │  │  API Routes (/api/*)                      │   │     │
-│  │  │  • /api/chat/messages                      │   │     │
-│  │  │  • /api/search                             │   │     │
-│  │  │  • /api/tickets                            │   │     │
-│  │  │  • /api/admin/*                            │   │     │
-│  │  └────────────────────────────────────────────┘   │     │
-│  │                                                    │     │
-│  │  ┌────────────────────────────────────────────┐   │     │
-│  │  │  Socket.io Server                          │   │     │
-│  │  │  • Real-time messaging                     │   │     │
-│  │  │  • Presence tracking                      │   │     │
-│  │  │  • Typing indicators                      │   │     │
-│  │  └────────────────────────────────────────────┘   │     │
-│  │                                                    │     │
-│  │  ┌────────────────────────────────────────────┐   │     │
-│  │  │  Prisma ORM                                │   │     │
-│  │  │  • Type-safe database access               │   │     │
-│  │  │  • Query optimization                      │   │     │
-│  │  │  • Migration management                    │   │     │
-│  │  └────────────────────────────────────────────┘   │     │
-│  └────────────────────┬───────────────────────────────┘     │
-│                       │                                       │
-└───────────────────────┼───────────────────────────────────────┘
-                        │
-            ┌───────────▼───────────┐
-            │   PostgreSQL          │
-            │   • Full-text search  │
-            │   • tsvector indexes  │
-            │   • ACID transactions │
-            └───────────────────────┘
-```
+![Architecture Diagram](./docs/assets/architecture-diagram.svg)
+
+**Visual Overview**: The diagram above shows the complete system architecture, from client browser through the Next.js server to PostgreSQL database.
+
+**Key Components**:
+- **Client Layer**: React UI, Socket.io client, Zustand store, localStorage persistence
+- **Server Layer**: Next.js API routes, Socket.io server, Prisma ORM
+- **Database Layer**: PostgreSQL with full-text search capabilities
+
+See [ARCHITECTURE_EXPLAINED.md](./ARCHITECTURE_EXPLAINED.md) for detailed explanations.
 
 ### Data Flow
 
@@ -73,6 +68,173 @@ Built with Next.js 15, TypeScript, Tailwind CSS, NextAuth, Prisma, PostgreSQL, a
 4. **Client Receives** → Zustand Store Update → UI Re-render
 
 See [ARCHITECTURE_EXPLAINED.md](./ARCHITECTURE_EXPLAINED.md) for details.
+
+## Feature Tour
+
+### 1. Home Page - Forum-Style Discovery
+
+The home page combines forum-style room discovery with modern UX:
+
+![Home Page](./docs/assets/screenshots/home-page.png)
+
+**Features**:
+- **My Rooms**: Quick access to rooms you've joined with last message preview
+- **Direct Messages**: One-on-one conversations with other users
+- **Discover Section**: Browse public rooms with search, tag filters, and sorting
+- **Room Cards**: Display title, description, tags, member count, and last message snippet
+- **Create Room**: Modal form to create new public or private rooms
+
+### 2. Chat Room - Threaded Conversations
+
+Real-time chat with hierarchical threading support:
+
+![Chat Room](./docs/assets/screenshots/chat-room.png)
+
+**Features**:
+- **Threaded Messages**: Reply to specific messages creating nested threads
+- **Expandable Threads**: Click to expand/collapse thread views
+- **Deep-Linking**: URL parameters (`?thread=messageId`) auto-expand specific threads
+- **Room Header**: Full metadata display with badges, tags, and member info
+- **Message Actions**: Edit, delete, react with emojis
+- **Presence Indicators**: See who's online in real-time
+- **Typing Indicators**: Know when someone is typing
+
+### 3. Direct Messages
+
+One-on-one conversations with auto-created DM rooms:
+
+![Direct Messages](./docs/assets/screenshots/direct-messages.png)
+
+**Features**:
+- **Auto-Creation**: DM rooms created automatically when messaging a user
+- **No Duplicates**: Ensures exactly one DM room per user pair
+- **Private**: DMs are hidden from public discovery
+- **Thread Support**: Full threading capabilities in DMs
+
+### 4. Admin Dashboard
+
+Comprehensive admin panel for system management:
+
+![Admin Dashboard](./docs/assets/screenshots/admin-dashboard.png)
+
+**Features**:
+- **User Management**: View and manage all users
+- **System Statistics**: Total users, messages, rooms
+- **Room Management**: Create and manage rooms
+- **Observability**: Real-time metrics and performance monitoring
+- **Audit Logs**: Comprehensive audit trail viewer
+
+### 5. Observability Dashboard
+
+Real-time system metrics and performance monitoring:
+
+![Observability Dashboard](./docs/assets/screenshots/telemetry-dashboard.png)
+
+**Features**:
+- **Real-Time Metrics**: Messages per minute, active connections, socket latency
+- **Performance Tracking**: CPU, memory usage, slow query detection
+- **Top Rooms**: Most active rooms with clickable navigation
+- **Time Series Charts**: 5-minute history with auto-refresh
+- **Query Performance**: Track Prisma queries >100ms
+
+### 6. Search Results
+
+Full-text search across messages and rooms:
+
+![Search Results](./docs/assets/screenshots/search-results.png)
+
+**Features**:
+- **Message Search**: Full-text search with snippets and highlighting
+- **Room Search**: Search room titles, descriptions, and tags
+- **Complex Queries**: `from:@alice tag:billing before:2024-01-01`
+- **Parent Context**: See parent message for threaded replies
+- **Deep-Linking**: Click results to jump to exact message position
+
+## Design Decisions
+
+### Caching Strategy
+
+**Why Zustand with Persistence?**
+
+Accessly uses Zustand with persist middleware for client-side state management:
+
+- **Per-Room Caching**: Messages cached per room, enabling instant room switching
+- **localStorage Persistence**: State survives tab switches, page refreshes, and browser restarts
+- **Incremental Updates**: Only fetches new messages since last visit, not entire history
+- **Empty Room Caching**: Even empty rooms are cached to prevent unnecessary refetches
+- **Scroll Position Memory**: Exact scroll position remembered per room
+
+**Trade-offs**:
+- ✅ **Pros**: Instant navigation, reduced server load, better UX
+- ⚠️ **Cons**: localStorage size limits (~5-10MB), requires cleanup for very large rooms
+
+**Future Improvements**: Could implement LRU cache eviction for very large rooms.
+
+### Scroll Position Restoration
+
+**Why Custom Scroll Management?**
+
+Accessly implements custom scroll restoration instead of relying on browser defaults:
+
+- **Per-Room Memory**: Each room remembers its exact scroll position
+- **Flash Prevention**: Container hidden during scroll restoration to prevent visual jumps
+- **Anchored Pagination**: Loading older messages preserves viewport position
+- **Tab Switch Resilient**: Scroll position preserved when switching browser tabs
+
+**Implementation**:
+- Scroll positions stored in Zustand with localStorage persistence
+- `useLayoutEffect` for synchronous scroll restoration
+- Container visibility managed to prevent flashes during restoration
+
+**Why Not Browser Default?**
+- Browser scroll restoration doesn't work well with dynamic content
+- Doesn't handle per-room scroll positions
+- Causes visual flashes during restoration
+
+### RBAC (Role-Based Access Control)
+
+**Why Two-Tier Role System?**
+
+Accessly uses a two-tier role system:
+
+1. **Global Roles** (USER, MODERATOR, ADMIN) - System-wide permissions
+2. **Room Roles** (OWNER, MODERATOR, MEMBER) - Per-room permissions
+
+**Benefits**:
+- **Flexibility**: Admins can moderate system-wide, room owners manage their rooms
+- **Granular Control**: Different permissions for different contexts
+- **Scalability**: Room owners don't need admin privileges to manage their rooms
+
+**Implementation**:
+- Centralized `assertRole()` and `assertMembership()` functions
+- Custom `InsufficientRoleError` for consistent error handling
+- Server-side verification on all protected routes
+
+### Sockets vs Serverless
+
+**Why Socket.io Instead of Serverless Functions?**
+
+Accessly requires a **long-lived Node.js process** for real-time features:
+
+- **WebSocket Connections**: Socket.io requires persistent connections (not possible with serverless)
+- **State Management**: Socket.io server maintains connection state and room memberships
+- **Real-Time Broadcasting**: Instant message delivery to all room members
+- **Presence Tracking**: Track online users across rooms
+- **Typing Indicators**: Real-time typing status broadcast
+
+**Deployment Requirements**:
+- ✅ **Supported**: Fly.io, Render, Railway, AWS ECS, DigitalOcean App Platform
+- ❌ **Not Supported**: Vercel (serverless), Netlify (serverless)
+
+**Scaling Strategy**:
+- **Single Instance**: Works for small to medium deployments
+- **Horizontal Scaling**: Use Redis adapter for multiple instances
+- **Load Balancing**: No sticky sessions needed with Redis adapter
+
+**Why Not Serverless + WebSockets?**
+- Serverless WebSocket solutions (AWS API Gateway, Cloudflare Workers) are more complex
+- Higher latency and cost for real-time features
+- Socket.io with Redis adapter is battle-tested and simpler
 
 ## Features
 
@@ -392,15 +554,67 @@ docker run -p 3000:3000 \
 ### Recommended Platforms
 
 - **Fly.io**: Excellent for Docker deployments with persistent connections
+  - Docker-based, supports WebSockets natively
+  - Easy scaling with `fly scale count`
+  - Built-in Redis support
 - **Render**: Supports Docker and long-running processes
+  - Docker or native Node.js deployments
+  - Automatic SSL and health checks
+  - Redis add-on available
 - **Railway**: Docker-first platform, great for Node.js apps
+  - One-click deployments from GitHub
+  - Built-in PostgreSQL and Redis
+  - Automatic deployments on push
 - **AWS ECS/EC2**: Self-hosted with Docker
+  - Full control over infrastructure
+  - Use Application Load Balancer for WebSocket support
+  - ElastiCache for Redis
 - **DigitalOcean App Platform**: Supports Docker deployments
+  - Managed platform with Docker support
+  - Managed databases and Redis available
 
 ### NOT Recommended
 
 - **❌ Vercel**: Serverless functions don't support Socket.io long-lived connections
 - **❌ Netlify**: Serverless-only, no persistent connections
+
+### Setup & Deploy Notes
+
+**For Long-Lived Node Process:**
+
+1. **Environment Variables**:
+   ```bash
+   DATABASE_URL=postgresql://...
+   AUTH_SECRET=...
+   NEXTAUTH_URL=https://your-domain.com
+   REDIS_URL=redis://...  # Optional, for horizontal scaling
+   PORT=3000
+   ```
+
+2. **Build Command**:
+   ```bash
+   pnpm build
+   ```
+
+3. **Start Command**:
+   ```bash
+   pnpm start
+   ```
+
+4. **Health Check Endpoint**:
+   - Use `/api/status` for health checks
+   - Returns 200 OK when database is connected
+
+5. **Database Migrations**:
+   ```bash
+   pnpm prisma migrate deploy
+   ```
+
+6. **Scaling with Redis**:
+   - Set `REDIS_URL` environment variable
+   - Socket.io automatically uses Redis adapter
+   - Scale to multiple instances behind load balancer
+   - No sticky sessions needed
 
 See [docs/deploy.md](./docs/deploy.md) for detailed deployment instructions.
 
@@ -797,21 +1011,16 @@ Quick demo steps:
 
 ## Screenshots
 
-> **Note**: Screenshots should be added to showcase the UI. Recommended screenshots:
-> - Home page with room discovery
-> - Chat interface with threading
-> - Ticket management dashboard
-> - Search results with highlighting
-> - Admin observability dashboard
-> - Audit log viewer
+Screenshots are available in the [Feature Tour](#feature-tour) section above. All screenshots are located in `docs/assets/screenshots/`:
 
-**Screenshot locations** (to be added):
-- `/docs/screenshots/home-page.png` - Room discovery page
-- `/docs/screenshots/chat-threading.png` - Threaded conversations
-- `/docs/screenshots/ticket-management.png` - Ticket dashboard
-- `/docs/screenshots/search-results.png` - Search with highlighting
-- `/docs/screenshots/telemetry.png` - Observability dashboard
-- `/docs/screenshots/audit-log.png` - Audit log viewer
+- `home-page.png` - Forum-style room discovery page
+- `chat-room.png` - Chat interface with threaded conversations
+- `direct-messages.png` - Direct message interface
+- `admin-dashboard.png` - Admin dashboard with user management
+- `telemetry-dashboard.png` - Observability dashboard with metrics
+- `search-results.png` - Search results with highlighting
+
+> **Note**: Screenshots are placeholders. Replace with actual screenshots from your running application.
 
 ## Testing
 

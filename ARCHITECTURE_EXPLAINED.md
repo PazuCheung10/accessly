@@ -62,19 +62,40 @@ pnpm start
 
 ## Deployment Options
 
-### Option 1: Vercel (Recommended - Zero Config)
-- Next.js created by Vercel team
-- Auto-deploys from GitHub
-- Handles serverless API routes automatically
-- **Just connect your repo to Vercel**
+**⚠️ Important**: Accessly requires a **long-lived Node.js process** for Socket.io real-time features. Serverless platforms (Vercel, Netlify) are **not supported**.
 
-### Option 2: Docker (Self-Hosting)
-If you want to containerize:
+### Recommended Platforms
+
+**Option 1: Fly.io (Recommended)**
+- Docker-based deployments with persistent connections
+- Excellent WebSocket support
+- Easy scaling: `fly scale count 3`
+- Built-in Redis support
+- See [docs/deploy.md](./docs/deploy.md) for detailed instructions
+
+**Option 2: Render**
+- Supports Docker and long-running processes
+- Automatic SSL and health checks
+- Redis add-on available
+- Good for small to medium deployments
+
+**Option 3: Railway**
+- Docker-first platform
+- One-click deployments from GitHub
+- Built-in PostgreSQL and Redis
+- Automatic deployments on push
+
+**Option 4: Docker (Self-Hosting)**
+- Full control over infrastructure
 - One Docker container for Next.js app
 - One Docker container for PostgreSQL (or use managed DB)
 - Optional: Redis container for Socket.io scaling
+- See `docker-compose.yml` for setup
 
-Would you like me to add Docker support?
+### NOT Recommended
+
+- **❌ Vercel**: Serverless functions don't support Socket.io long-lived connections
+- **❌ Netlify**: Serverless-only, no persistent connections
 
 ## What Needs Separate Containers?
 
