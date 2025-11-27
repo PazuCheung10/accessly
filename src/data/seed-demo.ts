@@ -1,7 +1,31 @@
-import { PrismaClient, Role, RoomRole, RoomType } from '@prisma/client'
+import { PrismaClient, Role, RoomRole, RoomType, TicketStatus } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
+
+/**
+ * IMPORTANT SEEDING RULES:
+ * 
+ * 1. Never skip validation:
+ *    - Rooms exist before creating messages
+ *    - RoomMembers exist before creating messages
+ *    - parentMessageId references a message in the same room
+ *    - Ticket rooms must include a valid status
+ *    - All emails must be unique
+ *    - Room names must be unique
+ * 
+ * 2. Create items in this order:
+ *    1. Users
+ *    2. Rooms
+ *    3. RoomMembers
+ *    4. Messages
+ * 
+ * 3. Keep messages realistic (50-120 total)
+ * 
+ * 4. Match the app logic:
+ *    - room.type must be: "PUBLIC" | "PRIVATE" | "DM" | "TICKET"
+ *    - For TICKET rooms, set status: "OPEN" | "WAITING" | "RESOLVED"
+ */
 
 // Sample messages for different room types
 const generalMessages = [
@@ -13,22 +37,14 @@ const generalMessages = [
   'Thanks for the warm welcome everyone!',
   'Has anyone tried the new feature yet?',
   'Looking forward to the weekend!',
-  'Does anyone know if there are any events happening this week?',
   'Great to see so many active members here!',
   'Thanks for all the help yesterday!',
   'Just wanted to say hi and introduce myself 🎉',
-  'Anyone else working on something interesting this week?',
   'This is such a friendly community!',
   'Hope you all have a wonderful day! ✨',
   'I have a quick question - can anyone help?',
-  'Thanks in advance!',
   'That sounds great!',
   'I totally agree with that',
-  'Looking forward to hearing more about it',
-  'That\'s really helpful, thanks!',
-  'Does anyone have recommendations?',
-  'I\'ll check that out!',
-  'Sounds interesting!',
   'Thanks for sharing!',
 ]
 
@@ -38,26 +54,13 @@ const techMessages = [
   'Anyone working with TypeScript? I have a question about generics',
   'Just deployed my app to production - feels great!',
   'Does anyone have experience with Prisma migrations?',
-  'I\'m learning Rust and it\'s quite different from what I\'m used to',
   'What\'s your favorite testing framework?',
   'Has anyone used Docker for local development?',
   'I love the new features in VS Code!',
-  'Working on a new side project - excited to share it soon',
   'Anyone have tips for improving performance?',
   'Just read an interesting article about microservices',
-  'I\'m trying to understand GraphQL subscriptions',
   'Does anyone have recommendations for state management?',
   'Learning about database indexing - it\'s fascinating!',
-  'What\'s everyone working on this week?',
-  'I found a great resource for learning Node.js',
-  'Anyone using Tailwind CSS? I\'m loving it!',
-  'Just set up CI/CD for my project 🎯',
-  'What are your thoughts on serverless architecture?',
-  'I\'m diving deep into WebSockets',
-  'Anyone have experience with Redis?',
-  'Just optimized my database queries - huge improvement!',
-  'Learning about authentication best practices',
-  'What\'s your go-to backend framework?',
 ]
 
 const randomMessages = [
@@ -65,27 +68,12 @@ const randomMessages = [
   'Just watched a great movie - anyone have recommendations?',
   'I love coffee ☕ - anyone else?',
   'What\'s your favorite programming language and why?',
-  'Anyone else excited about the weekend?',
   'Just finished a great book!',
   'What\'s the weather like where you are?',
-  'I\'m trying to learn a new language (not programming 😄)',
   'Anyone have good music recommendations?',
   'What\'s everyone\'s favorite hobby?',
   'Just had the best pizza ever 🍕',
-  'Does anyone have pets?',
   'I\'m planning a trip - any travel tips?',
-  'What\'s your favorite way to relax?',
-  'Anyone else into photography?',
-  'Just discovered a new coffee shop!',
-  'What\'s everyone doing for lunch?',
-  'I love hiking on weekends 🌲',
-  'Anyone into gaming?',
-  'What\'s your favorite season?',
-  'Just learned something new today!',
-  'Anyone have good podcast recommendations?',
-  'What\'s your favorite cuisine?',
-  'I\'m trying to get into better shape 💪',
-  'Anyone have weekend plans?',
 ]
 
 const privateMessages = [
@@ -94,21 +82,11 @@ const privateMessages = [
   'Let\'s discuss the project details here',
   'I think we should focus on the MVP first',
   'What do you all think about the timeline?',
-  'I\'ll send over the design mockups soon',
   'Great progress everyone!',
   'Let\'s schedule a meeting for next week',
   'I have some questions about the implementation',
-  'Can we review the requirements together?',
   'This is looking really good!',
   'Thanks for all the hard work!',
-  'I\'ll update the documentation today',
-  'Let me know if you need any help',
-  'Great collaboration everyone!',
-  'I think we\'re on track',
-  'Let\'s make sure we communicate clearly',
-  'I appreciate everyone\'s input',
-  'This is going to be awesome!',
-  'Let\'s keep the momentum going!',
 ]
 
 const dmMessages = [
@@ -120,13 +98,23 @@ const dmMessages = [
   'Thanks for the quick response!',
   'Let me know what you think',
   'That sounds good to me',
-  'I\'ll get back to you on that',
   'Thanks again!',
-  'Looking forward to working together',
-  'Let me know if you need anything',
-  'I\'ll send you the details',
-  'Sounds great!',
-  'Thanks for understanding',
+]
+
+const ticketMessages = [
+  'I\'m experiencing an issue with the login functionality',
+  'The app crashes when I try to upload a file',
+  'Can you help me reset my password?',
+  'I noticed a bug in the search feature',
+  'Is there a way to export my data?',
+]
+
+const ticketReplies = [
+  'Thanks for reporting this. Let me investigate.',
+  'I\'ve reproduced the issue and working on a fix.',
+  'This should be resolved in the next update.',
+  'Can you provide more details about when this happens?',
+  'I\'ll update you once we have a solution.',
 ]
 
 // Generate random timestamp within past week
@@ -142,60 +130,64 @@ function randomMessage(messages: string[]): string {
   return messages[Math.floor(Math.random() * messages.length)]
 }
 
-// Generate random number between min and max (inclusive)
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
 async function main() {
   console.log('🎭 Starting demo seed...')
+  console.log('📋 Following seeding rules: Users → Rooms → RoomMembers → Messages\n')
 
-  // Clear existing data (idempotent)
+  // Clear existing data (idempotent) - in reverse order of creation
   console.log('🧹 Clearing existing data...')
   await prisma.message.deleteMany({})
   await prisma.roomMember.deleteMany({})
   await prisma.room.deleteMany({})
   await prisma.user.deleteMany({})
-  console.log('✅ Cleared existing data')
+  console.log('✅ Cleared existing data\n')
 
+  // ============================================
+  // STEP 1: Create Users
+  // ============================================
+  console.log('👥 STEP 1: Creating users...')
+  
   // Hash password for all users
   const hashedPassword = await bcrypt.hash('demo123', 10)
 
-  // Create 5 users (2 admins, 3 regular users) with avatars
-  console.log('👥 Creating users...')
-  
   const users = [
     {
-      email: 'admin@demo.com',
-      name: 'Alex Admin',
+      email: 'admin@solace.com',
+      name: 'Admin',
       role: Role.ADMIN,
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
     },
     {
-      email: 'sarah@demo.com',
-      name: 'Sarah Chen',
-      role: Role.USER,
-      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
-    },
-    {
-      email: 'mike@demo.com',
-      name: 'Mike Johnson',
-      role: Role.USER,
-      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike',
-    },
-    {
-      email: 'emma@demo.com',
-      name: 'Emma Wilson',
-      role: Role.USER,
-      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=emma',
-    },
-    {
-      email: 'david@demo.com',
-      name: 'David Brown',
+      email: 'clara@solace.com',
+      name: 'Clara',
       role: Role.ADMIN,
-      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=david',
+      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=clara',
+    },
+    {
+      email: 'jacob@solace.com',
+      name: 'Jacob',
+      role: Role.USER,
+      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=jacob',
+    },
+    {
+      email: 'may@solace.com',
+      name: 'May',
+      role: Role.USER,
+      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=may',
+    },
+    {
+      email: 'ethan@solace.com',
+      name: 'Ethan',
+      role: Role.USER,
+      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ethan',
     },
   ]
+
+  // Validate: All emails must be unique
+  const emails = users.map(u => u.email)
+  if (new Set(emails).size !== emails.length) {
+    throw new Error('❌ Duplicate emails found in seed data')
+  }
 
   const createdUsers = []
   for (const userData of users) {
@@ -207,15 +199,33 @@ async function main() {
       },
     })
     createdUsers.push(user)
-    console.log(`✅ Created ${userData.role} user: ${userData.email}`)
+    console.log(`   ✅ Created ${userData.role} user: ${userData.email}`)
   }
 
-  const [admin1, user1, user2, user3, admin2] = createdUsers
-  console.log('✅ All users created')
-  console.log('   Password for all users: demo123')
+  const [admin1, admin2, user1, user2, user3] = createdUsers
+  console.log(`✅ All ${createdUsers.length} users created`)
+  console.log('   Password for all users: demo123\n')
 
-  // Create 5 rooms: 3 public, 1 private, 1 DM
-  console.log('🏠 Creating rooms...')
+  // ============================================
+  // STEP 2: Create Rooms
+  // ============================================
+  console.log('🏠 STEP 2: Creating rooms...')
+
+  // Validate: All room names must be unique
+  const roomNames = [
+    '#general',
+    '#tech',
+    '#random',
+    '#private-team',
+    `dm-${admin1.id}-${user1.id}`,
+    '#gaming',
+    '#music',
+    '#design',
+    'ticket-login-issue',
+  ]
+  if (new Set(roomNames).size !== roomNames.length) {
+    throw new Error('❌ Duplicate room names found in seed data')
+  }
 
   const generalRoom = await prisma.room.create({
     data: {
@@ -267,17 +277,17 @@ async function main() {
 
   const dmRoom = await prisma.room.create({
     data: {
-      name: `dm-${user1.id}-${user2.id}`,
-      title: `DM: ${user1.name} & ${user2.name}`,
+      name: `dm-${admin1.id}-${user1.id}`,
+      title: `DM: ${admin1.name} & ${user1.name}`,
       description: null,
       type: RoomType.DM,
       isPrivate: true,
-      creatorId: user1.id,
+      creatorId: admin1.id,
       tags: [],
     },
   })
 
-  // Create additional public rooms that sarah (user1) is NOT a member of yet
+  // Joinable public rooms (jacob is NOT a member yet)
   const gamingRoom = await prisma.room.create({
     data: {
       name: '#gaming',
@@ -314,45 +324,49 @@ async function main() {
     },
   })
 
-  console.log('✅ All rooms created (including joinable rooms)')
+  // TICKET room with proper status
+  const ticketRoom = await prisma.room.create({
+    data: {
+      name: 'ticket-login-issue',
+      title: '[TICKET] Login issue after update',
+      description: 'User cannot log in after the latest update',
+      type: RoomType.TICKET,
+      isPrivate: false,
+      status: TicketStatus.OPEN, // Required for TICKET rooms
+      creatorId: user1.id,
+      tags: ['ticket', 'bug', 'login'],
+    },
+  })
 
-  // Add members to rooms
-  console.log('👥 Adding members to rooms...')
+  console.log(`✅ All ${roomNames.length} rooms created\n`)
 
-  // Public rooms: all users are members of the original 3
+  // ============================================
+  // STEP 3: Create RoomMembers
+  // ============================================
+  console.log('👥 STEP 3: Adding members to rooms...')
+
+  // Public rooms: all users are members
   const publicRooms = [generalRoom, techRoom, randomRoom]
-  const allUsers = [admin1, user1, user2, user3, admin2]
+  const allUsers = [admin1, admin2, user1, user2, user3]
   
   for (const room of publicRooms) {
-    // Add all users to each public room
     for (const user of allUsers) {
-      try {
-        await prisma.roomMember.create({
-          data: {
-            userId: user.id,
-            roomId: room.id,
-            role: user.id === room.creatorId ? RoomRole.OWNER : RoomRole.MEMBER,
-          },
-        })
-      } catch (error: any) {
-        // Ignore duplicate key errors (idempotent)
-        if (error.code !== 'P2002') {
-          console.error(`Error adding ${user.email} to ${room.name}:`, error)
-          throw error
-        }
-      }
+      await prisma.roomMember.create({
+        data: {
+          userId: user.id,
+          roomId: room.id,
+          role: user.id === room.creatorId ? RoomRole.OWNER : RoomRole.MEMBER,
+        },
+      })
     }
   }
-  
-  console.log(`✅ Added all ${allUsers.length} users to ${publicRooms.length} public rooms`)
+  console.log(`   ✅ Added all ${allUsers.length} users to ${publicRooms.length} public rooms`)
 
-  // New joinable rooms: add some users but NOT sarah (user1)
-  // This creates rooms that sarah can discover and join
+  // Joinable rooms: add some users but NOT jacob (user1)
   const joinableRooms = [gamingRoom, musicRoom, designRoom]
-  const usersForJoinable = [admin1, user2, user3, admin2] // Exclude user1 (sarah)
+  const usersForJoinable = [admin1, admin2, user2, user3] // Exclude user1 (jacob)
   
   for (const room of joinableRooms) {
-    // Add creator as owner
     await prisma.roomMember.create({
       data: {
         userId: room.creatorId!,
@@ -361,78 +375,62 @@ async function main() {
       },
     })
     
-    // Add other users (but not sarah)
     for (const user of usersForJoinable) {
       if (user.id !== room.creatorId) {
-        try {
-          await prisma.roomMember.create({
-            data: {
-              userId: user.id,
-              roomId: room.id,
-              role: RoomRole.MEMBER,
-            },
-          })
-        } catch (error: any) {
-          if (error.code !== 'P2002') {
-            console.error(`Error adding ${user.email} to ${room.name}:`, error)
-            throw error
-          }
-        }
+        await prisma.roomMember.create({
+          data: {
+            userId: user.id,
+            roomId: room.id,
+            role: RoomRole.MEMBER,
+          },
+        })
       }
     }
   }
-  
-  console.log(`✅ Created ${joinableRooms.length} joinable rooms (sarah can join these)`)
+  console.log(`   ✅ Created ${joinableRooms.length} joinable rooms (jacob can join these)`)
 
-  // Private room: admin1 (owner), user1, user2 (members)
+  // Private room: admin1 (owner), admin2, user1 (members)
   await prisma.roomMember.create({
-    data: {
-      userId: admin1.id,
-      roomId: privateRoom.id,
-      role: RoomRole.OWNER,
-    },
+    data: { userId: admin1.id, roomId: privateRoom.id, role: RoomRole.OWNER },
   })
   await prisma.roomMember.create({
-    data: {
-      userId: user1.id,
-      roomId: privateRoom.id,
-      role: RoomRole.MEMBER,
-    },
+    data: { userId: admin2.id, roomId: privateRoom.id, role: RoomRole.MEMBER },
   })
   await prisma.roomMember.create({
-    data: {
-      userId: user2.id,
-      roomId: privateRoom.id,
-      role: RoomRole.MODERATOR,
-    },
+    data: { userId: user1.id, roomId: privateRoom.id, role: RoomRole.MODERATOR },
   })
+  console.log('   ✅ Private room members added')
 
-  // DM room: user1 and user2 (both members)
+  // DM room: admin1 and user1 (both members)
   await prisma.roomMember.create({
-    data: {
-      userId: user1.id,
-      roomId: dmRoom.id,
-      role: RoomRole.MEMBER,
-    },
+    data: { userId: admin1.id, roomId: dmRoom.id, role: RoomRole.MEMBER },
   })
   await prisma.roomMember.create({
-    data: {
-      userId: user2.id,
-      roomId: dmRoom.id,
-      role: RoomRole.MEMBER,
-    },
+    data: { userId: user1.id, roomId: dmRoom.id, role: RoomRole.MEMBER },
   })
+  console.log('   ✅ DM room members added')
 
-  console.log('✅ Members added to rooms')
+  // Ticket room: creator (user1) and assigned admin (admin1)
+  await prisma.roomMember.create({
+    data: { userId: user1.id, roomId: ticketRoom.id, role: RoomRole.MEMBER },
+  })
+  await prisma.roomMember.create({
+    data: { userId: admin1.id, roomId: ticketRoom.id, role: RoomRole.OWNER },
+  })
+  console.log('   ✅ Ticket room members added\n')
 
-  // Generate messages for each room
-  console.log('💬 Generating messages...')
+  // ============================================
+  // STEP 4: Create Messages
+  // ============================================
+  console.log('💬 STEP 4: Generating messages...')
+  console.log('   (Keeping total messages between 50-120 for optimal performance)\n')
 
-  // General room: 40 messages
-  const generalMembers = [admin1, user1, user2, user3, admin2]
-  for (let i = 0; i < 40; i++) {
+  // General room: 15 messages
+  const generalMembers = [admin1, admin2, user1, user2, user3]
+  const generalMessageIds: string[] = []
+  for (let i = 0; i < 15; i++) {
     const randomUser = generalMembers[Math.floor(Math.random() * generalMembers.length)]
-    await prisma.message.create({
+    const message = await prisma.message.create({
       data: {
         roomId: generalRoom.id,
         userId: randomUser.id,
@@ -440,14 +438,16 @@ async function main() {
         createdAt: randomPastWeekDate(),
       },
     })
+    generalMessageIds.push(message.id)
   }
-  console.log(`✅ Generated ${40} messages for General Chat`)
+  console.log(`   ✅ Generated 15 messages for General Chat`)
 
-  // Tech room: 35 messages
-  const techMembers = [admin1, user1, user2, admin2]
-  for (let i = 0; i < 35; i++) {
+  // Tech room: 12 messages
+  const techMembers = [admin1, admin2, user1, user2]
+  const techMessageIds: string[] = []
+  for (let i = 0; i < 12; i++) {
     const randomUser = techMembers[Math.floor(Math.random() * techMembers.length)]
-    await prisma.message.create({
+    const message = await prisma.message.create({
       data: {
         roomId: techRoom.id,
         userId: randomUser.id,
@@ -455,12 +455,13 @@ async function main() {
         createdAt: randomPastWeekDate(),
       },
     })
+    techMessageIds.push(message.id)
   }
-  console.log(`✅ Generated ${35} messages for Tech Talk`)
+  console.log(`   ✅ Generated 12 messages for Tech Talk`)
 
-  // Random room: 30 messages
+  // Random room: 10 messages
   const randomMembers = [user1, user2, user3, admin2]
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 10; i++) {
     const randomUser = randomMembers[Math.floor(Math.random() * randomMembers.length)]
     await prisma.message.create({
       data: {
@@ -471,11 +472,11 @@ async function main() {
       },
     })
   }
-  console.log(`✅ Generated ${30} messages for Random`)
+  console.log(`   ✅ Generated 10 messages for Random`)
 
-  // Private room: 25 messages
-  const privateMembers = [admin1, user1, user2]
-  for (let i = 0; i < 25; i++) {
+  // Private room: 8 messages
+  const privateMembers = [admin1, admin2, user1]
+  for (let i = 0; i < 8; i++) {
     const randomUser = privateMembers[Math.floor(Math.random() * privateMembers.length)]
     await prisma.message.create({
       data: {
@@ -486,11 +487,11 @@ async function main() {
       },
     })
   }
-  console.log(`✅ Generated ${25} messages for Private Team Room`)
+  console.log(`   ✅ Generated 8 messages for Private Team Room`)
 
-  // DM room: 20 messages
-  const dmMembers = [user1, user2]
-  for (let i = 0; i < 20; i++) {
+  // DM room: 6 messages
+  const dmMembers = [admin1, user1]
+  for (let i = 0; i < 6; i++) {
     const randomUser = dmMembers[Math.floor(Math.random() * dmMembers.length)]
     await prisma.message.create({
       data: {
@@ -501,40 +502,105 @@ async function main() {
       },
     })
   }
-  console.log(`✅ Generated ${20} messages for DM`)
+  console.log(`   ✅ Generated 6 messages for DM`)
 
-  // Verify seed data
-  console.log('\n🔍 Verifying seed data...')
+  // Ticket room: 1 main message + 5 replies (threaded)
+  const ticketMainMessage = await prisma.message.create({
+    data: {
+      roomId: ticketRoom.id,
+      userId: user1.id, // Creator
+      content: randomMessage(ticketMessages),
+      createdAt: randomPastWeekDate(),
+    },
+  })
+  console.log(`   ✅ Generated 1 main message for Ticket`)
+
+  // Create threaded replies (parentMessageId references main message in same room)
+  for (let i = 0; i < 5; i++) {
+    const replyUser = i % 2 === 0 ? admin1 : user1 // Alternate between admin and user
+    await prisma.message.create({
+      data: {
+        roomId: ticketRoom.id, // Same room as parent
+        userId: replyUser.id,
+        content: randomMessage(ticketReplies),
+        parentMessageId: ticketMainMessage.id, // Valid reference to message in same room
+        createdAt: randomPastWeekDate(),
+      },
+    })
+  }
+  console.log(`   ✅ Generated 5 threaded replies for Ticket`)
+
+  const totalMessages = 15 + 12 + 10 + 8 + 6 + 1 + 5 // = 57 messages
+  console.log(`\n   📊 Total messages: ${totalMessages} (within 50-120 range)`)
+
+  // ============================================
+  // STEP 5: Verification
+  // ============================================
+  console.log('\n🔍 STEP 5: Verifying seed data...')
+  
+  // Verify counts
   const totalRooms = await prisma.room.count()
-  const totalMessages = await prisma.message.count()
+  const totalMessagesCount = await prisma.message.count()
   const totalMemberships = await prisma.roomMember.count()
   
-  console.log(`   Rooms: ${totalRooms}`)
-  console.log(`   Messages: ${totalMessages}`)
-  console.log(`   Memberships: ${totalMemberships}`)
+  console.log(`   ✅ Rooms: ${totalRooms}`)
+  console.log(`   ✅ Messages: ${totalMessagesCount}`)
+  console.log(`   ✅ Memberships: ${totalMemberships}`)
   
   // Verify each user has memberships
   for (const user of allUsers) {
     const userMemberships = await prisma.roomMember.count({
       where: { userId: user.id },
     })
-    console.log(`   ${user.email}: ${userMemberships} room memberships`)
+    if (userMemberships === 0) {
+      throw new Error(`❌ User ${user.email} has no room memberships`)
+    }
+    console.log(`   ✅ ${user.email}: ${userMemberships} room memberships`)
   }
   
   // Verify each room has members
-  const allRoomsToCheck = [...publicRooms, ...joinableRooms]
-  for (const room of allRoomsToCheck) {
+  const allRooms = [generalRoom, techRoom, randomRoom, privateRoom, dmRoom, ...joinableRooms, ticketRoom]
+  for (const room of allRooms) {
     const roomMembers = await prisma.roomMember.count({
       where: { roomId: room.id },
     })
-    const roomMessages = await prisma.message.count({
-      where: { roomId: room.id },
-    })
-    console.log(`   ${room.name}: ${roomMembers} members, ${roomMessages} messages`)
+    if (roomMembers === 0) {
+      throw new Error(`❌ Room ${room.name} has no members`)
+    }
+    console.log(`   ✅ ${room.name}: ${roomMembers} members`)
   }
-  
-  // Check which rooms sarah (user1) can join
-  const sarahJoinable = await prisma.room.findMany({
+
+  // Verify ticket room has status
+  const ticket = await prisma.room.findUnique({
+    where: { id: ticketRoom.id },
+    select: { type: true, status: true },
+  })
+  if (ticket?.type === RoomType.TICKET && !ticket.status) {
+    throw new Error(`❌ Ticket room ${ticketRoom.name} missing status`)
+  }
+  console.log(`   ✅ Ticket room has status: ${ticket?.status}`)
+
+  // Verify parentMessageId references are valid
+  const messagesWithParent = await prisma.message.findMany({
+    where: { parentMessageId: { not: null } },
+    select: { id: true, roomId: true, parentMessageId: true },
+  })
+  for (const msg of messagesWithParent) {
+    const parent = await prisma.message.findUnique({
+      where: { id: msg.parentMessageId! },
+      select: { roomId: true },
+    })
+    if (!parent) {
+      throw new Error(`❌ Message ${msg.id} references non-existent parent ${msg.parentMessageId}`)
+    }
+    if (parent.roomId !== msg.roomId) {
+      throw new Error(`❌ Message ${msg.id} parent is in different room`)
+    }
+  }
+  console.log(`   ✅ All ${messagesWithParent.length} threaded messages have valid parent references`)
+
+  // Check which rooms jacob (user1) can join
+  const jacobJoinable = await prisma.room.findMany({
     where: {
       type: RoomType.PUBLIC,
       members: {
@@ -548,20 +614,23 @@ async function main() {
       title: true,
     },
   })
-  console.log(`\n   📋 Rooms sarah can join: ${sarahJoinable.length}`)
-  for (const room of sarahJoinable) {
+  console.log(`\n   📋 Rooms jacob can join: ${jacobJoinable.length}`)
+  for (const room of jacobJoinable) {
     console.log(`      - ${room.name} (${room.title})`)
   }
 
-  console.log('\n✨ Demo seed completed!')
+  console.log('\n✨ Demo seed completed successfully!')
   console.log('\n📋 Demo Accounts:')
-  console.log('   Admin: admin@demo.com / demo123')
-  console.log('   Admin: david@demo.com / demo123')
-  console.log('   User:  sarah@demo.com / demo123')
-  console.log('   User:  mike@demo.com / demo123')
-  console.log('   User:  emma@demo.com / demo123')
+  console.log('   Admin: admin@solace.com / demo123')
+  console.log('   Admin: clara@solace.com / demo123')
+  console.log('   User:  jacob@solace.com / demo123')
+  console.log('   User:  may@solace.com / demo123')
+  console.log('   User:  ethan@solace.com / demo123')
   console.log('\n🎉 You can now sign in with any account and see the chat history!')
-  console.log('\n⚠️  IMPORTANT: Make sure you sign in with one of the demo accounts above!')
+  console.log('\n💡 Next steps:')
+  console.log('   - Sign in at http://localhost:3000')
+  console.log('   - Verify endpoints: /api/debug/session, /api/chat/rooms')
+  console.log('   - Check ticket room: ticket-login-issue')
 }
 
 main()
@@ -572,4 +641,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect()
   })
-

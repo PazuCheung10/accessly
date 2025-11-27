@@ -45,11 +45,11 @@ async function diagnose() {
     where: {
       email: {
         in: [
-          'admin@demo.com',
-          'sarah@demo.com',
-          'mike@demo.com',
-          'emma@demo.com',
-          'david@demo.com',
+          'admin@solace.com',
+          'clara@solace.com',
+          'jacob@solace.com',
+          'may@solace.com',
+          'ethan@solace.com',
         ],
       },
     },
@@ -173,7 +173,7 @@ async function diagnose() {
   } else {
     console.log(`\n   ✅ Database looks good!`)
     console.log(`   💡 If you still see no rooms:`)
-    console.log(`      1. Sign out and sign in as sarah@demo.com / demo123`)
+    console.log(`      1. Sign out and sign in as jacob@solace.com / demo123`)
     console.log(`      2. Visit /api/debug/session to verify your session`)
     console.log(`      3. Visit /api/chat/rooms to see your rooms`)
   }
