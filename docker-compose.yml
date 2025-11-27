@@ -1,5 +1,10 @@
 version: '3.8'
 
+# Docker Compose configuration for Accessly
+# Used for local development and demo mode
+# Run: docker-compose up -d db redis (for demo mode)
+# Or: pnpm demo (automatically handles everything)
+
 services:
   # PostgreSQL Database
   db:

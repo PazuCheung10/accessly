@@ -24,7 +24,10 @@
     "db:seed-demo": "tsx src/data/seed-demo.ts",
     "db:check": "tsx src/data/check-memberships.ts",
     "db:diagnose": "tsx src/data/diagnose-chat.ts",
-    "demo": "pnpm prisma migrate deploy --schema=src/prisma/schema.prisma && pnpm prisma:gen && pnpm db:seed-demo && pnpm start"
+    "demo": "node scripts/demo-setup.mjs",
+    "demo:db": "docker-compose up -d db redis",
+    "demo:down": "docker-compose down",
+    "demo:reset": "docker-compose down -v && pnpm demo"
   },
   "dependencies": {
     "@auth/core": "0.41.1",
