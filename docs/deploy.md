@@ -80,31 +80,177 @@ Optional:
    fly scale count 2  # Multiple instances (requires Redis)
    ```
 
-### Render
+### Render (Recommended for Demo/Production)
 
-1. **Create new Web Service**
-   - Connect your GitHub repository
-   - Select "Docker" as the environment
+Render is an excellent choice for deploying Accessly as it supports long-lived Node.js processes and Docker deployments.
 
-2. **Configure**
-   - Build Command: `pnpm install && pnpm prisma generate && pnpm build`
-   - Start Command: `pnpm start`
-   - Health Check Path: `/status`
+#### Step 1: Create PostgreSQL Database
 
-3. **Add Environment Variables**
-   - Set all required env vars in Render dashboard
+1. Go to [Render Dashboard](https://dashboard.render.com)
+2. Click **"New +"** → **"PostgreSQL"**
+3. Configure:
+   - **Name**: `accessly-db` (or your preferred name)
+   - **Database**: `accessly` (or leave default)
+   - **User**: `accessly` (or leave default)
+   - **Region**: Choose closest to your users
+   - **PostgreSQL Version**: 16 (recommended)
+4. Click **"Create Database"**
+5. **Important**: Copy the **Internal Database URL** (for use within Render) and **External Database URL** (for local access if needed)
 
-4. **Add PostgreSQL Service**
-   - Create a new PostgreSQL database
-   - Use the connection string for `DATABASE_URL`
+#### Step 2: Create Redis Instance (Optional but Recommended)
 
-5. **Deploy**
-   - Render auto-deploys on git push
+For Socket.io horizontal scaling and better performance:
 
-6. **Post-deploy migration**
+1. Click **"New +"** → **"Redis"**
+2. Configure:
+   - **Name**: `accessly-redis`
+   - **Region**: Same as PostgreSQL
+   - **Redis Version**: 7 (latest)
+3. Click **"Create Redis"**
+4. Copy the **Internal Redis URL** and **External Redis URL**
+
+#### Step 3: Create Web Service
+
+1. Click **"New +"** → **"Web Service"**
+2. Connect your GitHub repository
+3. Configure the service:
+
+   **Basic Settings:**
+   - **Name**: `accessly` (or your preferred name)
+   - **Region**: Same as database
+   - **Branch**: `main` (or your default branch)
+   - **Root Directory**: `/` (root of repo)
+   - **Environment**: **Docker**
+   - **Dockerfile Path**: `Dockerfile` (default)
+
+   **Build & Deploy:**
+   - **Build Command**: (leave empty - Docker handles this)
+   - **Start Command**: `pnpm start`
+   - **Health Check Path**: `/status`
+   - **Health Check Interval**: 30 seconds
+
+   **Advanced Settings:**
+   - **Auto-Deploy**: Yes (deploy on git push)
+   - **Docker Build Context**: `/` (root)
+   - **Dockerfile Path**: `Dockerfile`
+
+#### Step 4: Configure Environment Variables
+
+In your Web Service settings, go to **"Environment"** and add:
+
+**Required:**
+```
+DATABASE_URL=<Internal Database URL from Step 1>
+AUTH_SECRET=<Generate with: openssl rand -hex 32>
+NEXTAUTH_URL=https://your-app-name.onrender.com
+NEXT_PUBLIC_APP_URL=https://your-app-name.onrender.com
+NODE_ENV=production
+PORT=3000
+HOST=0.0.0.0
+```
+
+**Optional (for Socket.io scaling):**
+```
+REDIS_URL=<Internal Redis URL from Step 2>
+```
+
+**Optional (for OAuth):**
+```
+GITHUB_ID=<Your GitHub OAuth App Client ID>
+GITHUB_SECRET=<Your GitHub OAuth App Client Secret>
+```
+
+**Optional (for email auth):**
+```
+EMAIL_SERVER=smtp://user:pass@smtp.example.com:587
+EMAIL_FROM=noreply@yourdomain.com
+```
+
+#### Step 5: Deploy
+
+1. Click **"Create Web Service"**
+2. Render will automatically:
+   - Build the Docker image
+   - Deploy the service
+   - Start the application
+
+#### Step 6: Run Database Migrations
+
+After the first deployment, run migrations:
+
+**Option A: Using Render Shell (Recommended)**
+1. Go to your Web Service
+2. Click **"Shell"** tab
+3. Run:
    ```bash
-   render run pnpm prisma:deploy
+   pnpm prisma:deploy
    ```
+
+**Option B: Using Render CLI**
+```bash
+# Install Render CLI
+npm install -g render-cli
+
+# Login
+render login
+
+# Run migrations
+render run pnpm prisma:deploy
+```
+
+#### Step 7: Seed Demo Data (Optional)
+
+If you want to seed demo data for testing:
+
+1. Go to **"Shell"** tab in your Web Service
+2. Run:
+   ```bash
+   pnpm db:seed-demo
+   ```
+
+This will create demo users, rooms, and messages. Demo accounts:
+- `admin@solace.com` / `demo123`
+- `clara@solace.com` / `demo123`
+- `jacob@solace.com` / `demo123`
+- `may@solace.com` / `demo123`
+- `ethan@solace.com` / `demo123`
+
+#### Step 8: Scale (Optional)
+
+For production with multiple instances:
+
+1. Go to your Web Service settings
+2. Under **"Scaling"**, increase **"Instance Count"** to 2 or more
+3. **Important**: You must have `REDIS_URL` configured for Socket.io to work across instances
+4. Render will automatically load balance between instances
+
+#### Render-Specific Notes
+
+**Socket.io Adapter:**
+- If `REDIS_URL` is set, Socket.io automatically uses the Redis adapter
+- This enables real-time features to work across multiple instances
+- Without Redis, Socket.io only works on a single instance
+
+**Health Checks:**
+- Render uses the `/status` endpoint to monitor service health
+- If health checks fail, Render will restart the service
+- Check logs if health checks are failing
+
+**Custom Domain:**
+1. Go to your Web Service settings
+2. Click **"Custom Domains"**
+3. Add your domain and follow DNS instructions
+4. Update `NEXTAUTH_URL` and `NEXT_PUBLIC_APP_URL` to your custom domain
+
+**Environment Variables:**
+- Use **Internal URLs** for services within Render (PostgreSQL, Redis)
+- Use **External URLs** only for local development or external access
+- Internal URLs are faster and more secure (no public access)
+
+**Free Tier Limitations:**
+- Render free tier spins down after 15 minutes of inactivity
+- First request after spin-down takes ~30 seconds (cold start)
+- Upgrade to paid plan for always-on service
 
 ### Railway
 
