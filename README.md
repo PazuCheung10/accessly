@@ -4,6 +4,41 @@ Enterprise-grade realtime chat and helpdesk platform with role-based authenticat
 
 Built with Next.js 15, TypeScript, Tailwind CSS, NextAuth, Prisma, PostgreSQL, and Socket.io.
 
+## 🚀 Quick Start (One-Click Demo)
+
+**Clone and run in 3 steps:**
+
+```bash
+# 1. Clone the repository
+git clone <repository-url>
+cd accessly
+
+# 2. Install dependencies
+pnpm install
+
+# 3. Run demo mode (automatically sets up everything!)
+pnpm demo
+```
+
+That's it! The demo script will:
+- ✅ Check Docker is installed and running
+- ✅ Start PostgreSQL and Redis in Docker containers
+- ✅ Create `.env` file with required variables (auto-generated)
+- ✅ Run database migrations
+- ✅ Seed demo data (5 users, 8 rooms, 150+ messages)
+- ✅ Start the application at http://localhost:3000
+
+**Sign in with demo accounts:**
+- `admin@solace.com` / `demo123`
+- `clara@solace.com` / `demo123`
+- `jacob@solace.com` / `demo123`
+- `may@solace.com` / `demo123`
+- `ethan@solace.com` / `demo123`
+
+**Prerequisites:** Docker Desktop must be installed and running. [Download Docker Desktop](https://www.docker.com/products/docker-desktop)
+
+> 💡 **No manual configuration needed!** The demo script automatically creates the `.env` file, generates secrets, and configures everything for you.
+
 ## Product Overview
 
 **Accessly** is a **Forum + Chat hybrid platform** that combines the best of both worlds: the discoverability and organization of forums with the real-time interactivity of modern chat applications.
@@ -419,10 +454,11 @@ Accessly requires a **long-lived Node.js process** for real-time features:
 
 ### Prerequisites
 
-- Node.js 18+
-- PostgreSQL database
-- pnpm (or npm/yarn)
-- Docker & Docker Compose (optional, for containerized setup)
+- **Node.js 18+** - [Download Node.js](https://nodejs.org/)
+- **pnpm** - Install with `npm install -g pnpm`
+- **Docker Desktop** - [Download Docker Desktop](https://www.docker.com/products/docker-desktop) (required for demo mode)
+
+> 💡 **For Demo Mode**: Only Docker Desktop is required. The demo script handles PostgreSQL, Redis, environment setup, migrations, and seeding automatically!
 
 ### Install
 
@@ -432,6 +468,10 @@ pnpm i
 
 ### Environment Setup
 
+> 💡 **Skip this if using Demo Mode!** The `pnpm demo` command automatically creates the `.env` file for you.
+
+**For manual setup:**
+
 Copy `.env.example` to `.env` and fill in the required values:
 
 ```bash
@@ -440,6 +480,8 @@ cp .env.example .env
 
 **Required environment variables:**
 - `DATABASE_URL` - PostgreSQL connection string
+  - For Docker: `postgresql://accessly:accessly_dev_password@localhost:5432/accessly`
+  - For external DB: Your PostgreSQL connection string
 - `AUTH_SECRET` - NextAuth secret (generate with `openssl rand -hex 32`)
 - `NEXTAUTH_URL` - Application URL (default: http://localhost:3000)
 
@@ -467,18 +509,80 @@ pnpm db:seed
 
 # Or seed with realistic demo data (5 users, 8 rooms, 150 messages)
 pnpm db:seed-demo
+```
 
-# Quick demo setup (migrate + seed + start)
+**Demo Accounts:**
+- Admin: `admin@solace.com` / `demo123`
+- Admin: `clara@solace.com` / `demo123`
+- User: `jacob@solace.com` / `demo123`
+- User: `may@solace.com` / `demo123`
+- User: `ethan@solace.com` / `demo123`
+
+### 🎭 Demo Mode (One-Click Setup) - Recommended
+
+**The easiest way to get started!** Demo Mode automatically handles everything:
+
+1. ✅ Checks Docker is installed and running
+2. ✅ Creates `.env` file with auto-generated secrets
+3. ✅ Starts PostgreSQL and Redis via Docker Compose
+4. ✅ Waits for services to be healthy
+5. ✅ Runs database migrations
+6. ✅ Generates Prisma client
+7. ✅ Seeds realistic demo data (5 users, 8 rooms, 150+ messages)
+8. ✅ Starts the application
+
+**Prerequisites:**
+- Docker Desktop installed and running
+- Docker Compose available (included with Docker Desktop)
+
+**Run Demo Mode:**
+```bash
 pnpm demo
 ```
 
-**Default Accounts (from seed.ts):**
-- Admin: `admin@accessly.com` / `admin123`
-- User: `user@accessly.com` / `user123`
+**What happens:**
+- Automatically creates `.env` file with:
+  - `DATABASE_URL` (pointing to Docker PostgreSQL)
+  - `AUTH_SECRET` (auto-generated secure secret)
+  - `NEXTAUTH_URL` and `NEXT_PUBLIC_APP_URL` (localhost:3000)
+- Starts PostgreSQL and Redis in Docker containers
+- Sets up the database with migrations
+- Seeds demo data (users, rooms, messages)
+- Starts the app at http://localhost:3000
 
-**Demo Accounts (from seed-demo.ts):**
-- Admin: `admin@demo.com` / `admin123`
-- Users: `sarah@demo.com`, `alex@demo.com`, `emma@demo.com`, `james@demo.com` / `demo123`
+**No manual configuration required!** Everything is automated.
+
+**Demo Accounts:**
+Once the app starts, you can sign in with any of these accounts:
+- **Admin**: `admin@solace.com` / `demo123`
+- **Admin**: `clara@solace.com` / `demo123`
+- **User**: `jacob@solace.com` / `demo123`
+- **User**: `may@solace.com` / `demo123`
+- **User**: `ethan@solace.com` / `demo123`
+
+**Demo Data Includes:**
+- 5 users (2 admins, 3 regular users)
+- 8 rooms (3 public, 1 private, 1 DM, 3 joinable public rooms)
+- 150+ realistic messages across different rooms
+- Room memberships and permissions
+- Threaded conversations
+- Tags and room metadata
+
+**Stop Demo Mode:**
+Press `Ctrl+C` to stop the server. To stop Docker services:
+```bash
+pnpm demo:down
+```
+
+**Reset Demo Data:**
+To completely reset and start fresh:
+```bash
+pnpm demo:reset
+```
+
+This will:
+- Stop and remove Docker containers (including volumes)
+- Restart everything with fresh data
 
 ### Development
 
@@ -511,6 +615,37 @@ pnpm test:ui
 
 ### Quick Start with Docker Compose
 
+**🎯 Recommended: Use Demo Mode (One-Click)**
+```bash
+# One-click demo setup (handles everything automatically)
+pnpm demo
+```
+
+This automatically:
+- Creates `.env` file with correct Docker database URL
+- Starts PostgreSQL and Redis containers
+- Runs migrations and seeds data
+- Starts the application
+
+**Manual Docker Compose Setup (Advanced):**
+
+If you want to manually control Docker services:
+
+```bash
+# Start only database and Redis (for local development)
+pnpm demo:db
+# Or: docker-compose up -d db redis
+
+# Stop services
+pnpm demo:down
+# Or: docker-compose down
+
+# Reset everything (removes volumes, fresh start)
+pnpm demo:reset
+# Or: docker-compose down -v && pnpm demo
+```
+
+**Full Docker Compose (All Services):**
 ```bash
 # Start all services (PostgreSQL, Redis, Next.js app)
 docker-compose up -d
@@ -526,6 +661,9 @@ docker-compose exec app pnpm db:seed-demo
 
 # View logs
 docker-compose logs -f app
+
+# Stop services
+docker-compose down
 ```
 
 ### Docker Services
