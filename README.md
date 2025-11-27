@@ -4,6 +4,29 @@ Enterprise-grade realtime chat and helpdesk platform with role-based authenticat
 
 Built with Next.js 15, TypeScript, Tailwind CSS, NextAuth, Prisma, PostgreSQL, and Socket.io.
 
+> **For recruiters / clients**
+> 
+> This project demonstrates my ability to design and build a production-grade SaaS product end-to-end:
+> 
+> - Realtime chat & presence with Socket.io
+> - Helpdesk-style ticket workflow with threaded replies
+> - Public support form → auto-created ticket rooms
+> - Full-text search, audit logging, and observability
+> 
+> A 5–7 minute interview demo flow is available in:  
+> **[DEMO_SCRIPT.md](./DEMO_SCRIPT.md)**.
+
+## Product Theme
+
+**Accessly** is the underlying codebase.  
+**SolaceDesk** is the product theme used for the demo:
+
+A helpdesk workspace combining internal teams (engineering, design, product, support)  
+and external clients (Acme, Starflow, Nova), connected through rooms and tickets.
+
+This ensures that when you see `#engineering`, `client-acme`, or ticket rooms,  
+you instantly understand the business scenario.
+
 ## 🚀 Quick Start (One-Click Demo)
 
 **Clone and run in 3 steps:**
@@ -25,7 +48,7 @@ That's it! The demo script will:
 - ✅ Start PostgreSQL and Redis in Docker containers
 - ✅ Create `.env` file with required variables (auto-generated)
 - ✅ Run database migrations
-- ✅ Seed demo data (5 users, 8 rooms, 150+ messages)
+- ✅ Seed realistic demo data with multiple teams, clients, tickets, and threaded message history
 - ✅ Start the application at http://localhost:3000
 
 **Sign in with demo accounts:**
@@ -507,7 +530,7 @@ pnpm prisma migrate dev
 # Seed database (creates admin user, regular user, and sample rooms)
 pnpm db:seed
 
-# Or seed with realistic demo data (5 users, 8 rooms, 150 messages)
+# Or seed with realistic demo data (multiple teams, clients, tickets, threaded messages)
 pnpm db:seed-demo
 ```
 
@@ -528,7 +551,7 @@ pnpm db:seed-demo
 4. ✅ Waits for services to be healthy
 5. ✅ Runs database migrations
 6. ✅ Generates Prisma client
-7. ✅ Seeds realistic demo data (5 users, 8 rooms, 150+ messages)
+7. ✅ Seeds realistic demo data with multiple teams, clients, tickets, and threaded message history
 8. ✅ Starts the application
 
 **Prerequisites:**
@@ -561,11 +584,10 @@ Once the app starts, you can sign in with any of these accounts:
 - **User**: `ethan@solace.com` / `demo123`
 
 **Demo Data Includes:**
-- 5 users (2 admins, 3 regular users)
-- 8 rooms (3 public, 1 private, 1 DM, 3 joinable public rooms)
-- 150+ realistic messages across different rooms
+- Multiple users (admins, agents, clients)
+- Various room types (team rooms, private rooms, DMs, tickets)
+- Realistic message history with threaded conversations
 - Room memberships and permissions
-- Threaded conversations
 - Tags and room metadata
 
 **Stop Demo Mode:**
@@ -835,7 +857,7 @@ src/
 │   └── telemetry.ts       # Telemetry tracking utilities
 ├── data/                  # Seed scripts
 │   ├── seed.ts            # Basic seed (admin + user)
-│   ├── seed-demo.ts       # Realistic demo data
+│   ├── seed-demo.ts       # Demo data (teams, clients, tickets, threaded messages)
 │   └── diagnose-chat.ts   # Diagnostic tools
 ├── tests/                 # Test files
 │   ├── unit/              # Unit tests
