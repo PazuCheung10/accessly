@@ -102,7 +102,7 @@ export function RoomCard({ room, role }: RoomCardProps) {
           <div className="mb-3 p-3 bg-slate-900/50 rounded border border-slate-800">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-medium text-slate-300">
-                {room.lastMessage.user.name || 'Anonymous'}
+                {room.lastMessage.user?.name || 'Anonymous'}
               </span>
               <span className="text-xs text-slate-500">•</span>
               <span className="text-xs text-slate-500">
