@@ -68,7 +68,7 @@
 - Typing indicators (if available)
 
 **Say**:
-> "This is real-time chat powered by Socket.io. Messages appear instantly for all users in the room. Notice the threading - you can reply to specific messages, creating nested conversations like Slack or Discord."
+> "This is real-time chat powered by Socket.io. Messages appear instantly for all users in the room. Notice the threading - you can reply to specific messages, creating two-level threads (root message + direct replies)."
 
 **Action**: 
 - Send a test message

@@ -150,7 +150,7 @@ Real-time chat with hierarchical threading support:
 ![Chat Room](./docs/assets/screenshots/chat-room.png)
 
 **Features**:
-- **Threaded Messages**: Reply to specific messages creating nested threads
+- **Threaded Messages**: Reply to specific messages creating two-level threads (root + direct replies)
 - **Expandable Threads**: Click to expand/collapse thread views
 - **Deep-Linking**: URL parameters (`?thread=messageId`) auto-expand specific threads
 - **Room Header**: Full metadata display with badges, tags, and member info
@@ -314,8 +314,8 @@ Accessly requires a **long-lived Node.js process** for real-time features:
 
 ### Chat System
 - **Realtime Chat**: Socket.io-powered chat with instant message delivery
-- **Threading**: Reply to messages with nested thread structure
-  - Hierarchical message display with parent-child relationships
+- **Threading**: Reply to messages with two-level thread structure
+  - Two-level hierarchy: root messages and their direct replies
   - Expandable/collapsible threads
   - Deep-linking to specific threads via URL parameters
   - Thread persistence (expanded state saved)
@@ -1018,12 +1018,11 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
 
 ### Threading
 - **Reply System**: Click reply button on any message to start a thread
-- **Hierarchical Structure**: Messages organized as parent-child relationships
-- **Thread Display**: 
+- **Two-Level Structure**: Messages organized as parent-child relationships (root message + direct replies)
+  - Currently supports 2 levels: root messages and their direct replies
   - Root messages shown with reply count
   - Expandable/collapsible threads
   - Indented replies with visual thread line
-  - "Show replies" button for collapsed threads
 - **Thread Persistence**: Expanded thread state saved to localStorage
 - **Deep-Linking**: URL parameters (`?thread=messageId`) auto-expand threads
 - **Real-Time Updates**: New replies auto-expand if thread is already open
