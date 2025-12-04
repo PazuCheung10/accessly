@@ -17,11 +17,9 @@ const unsentMessages: Record<string, string> = {}
 interface ChatRoomProps {
   roomId: string
   roomName: string
-  isSwitchingRoom?: boolean
-  onMessagesLoaded?: () => void
 }
 
-export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessagesLoaded }: ChatRoomProps) {
+export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   const { data: session } = useSession()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -152,8 +150,6 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     if (room) {
       // 1) Render cached messages immediately (no loader, even if empty)
       setIsLoadingMessages(false)
-      // Notify parent immediately that we're done loading (cached room)
-      onMessagesLoaded?.()
 
       // 2) Restore scroll position (synchronously BEFORE paint to prevent flash)
       // Check if we have a saved scroll position (including 0 for empty rooms)
@@ -234,7 +230,7 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
       setIsLoadingMessages(true)
     }
     // Watch only roomId and messages length, NOT scrollTop (to avoid re-running on scroll)
-  }, [roomId, room?.messages?.length, room, onMessagesLoaded, setRoom])
+  }, [roomId, room?.messages?.length, room, setRoom])
 
   // 4.3a Handle scroll when messages first appear (for non-cached rooms)
   useLayoutEffect(() => {
@@ -274,13 +270,11 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
     if (!session?.user?.id) return
 
     // If room exists in cache (even if empty), don't fetch again
-    // Note: onMessagesLoaded() is already called in useLayoutEffect for cached rooms
     if (room) {
       // optional: fetch incrementals after initial paint (only if we have messages)
       if (room.messages?.length) {
         void fetchNewerAfter()
       }
-      // Don't call onMessagesLoaded() here - already called in useLayoutEffect
       return
     }
 
@@ -593,7 +587,6 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
         setIsRestoringScroll(false)
         isRestoringScrollRef.current = false
         hasInitialisedRef.current = true
-        onMessagesLoaded?.()
       } else {
         // First-time messages: snap to bottom *now* and unhide.
         // This ensures the container is visible immediately after the first fetch
@@ -617,7 +610,6 @@ export function ChatRoom({ roomId, roomName, isSwitchingRoom = false, onMessages
             hasInitialisedRef.current = true
             // Update prevRoomIdRef after initial fetch completes
             prevRoomIdRef.current = roomId
-            onMessagesLoaded?.()
             
             // Optional: immediately poll for any very-new messages
             void fetchNewerAfter()
