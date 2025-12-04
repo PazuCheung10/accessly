@@ -165,7 +165,7 @@ describe('GET /api/chat/messages', () => {
   })
 })
 
-describe('POST /api/chat/messages', () => {
+  describe('POST /api/chat/messages', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Mock prisma.user.findUnique for all POST tests
