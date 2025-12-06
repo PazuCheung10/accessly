@@ -8,6 +8,6 @@ export default async function ChatPage({
   // Handle both Promise and direct object for searchParams (Next.js 15 compatibility)
   const params = searchParams instanceof Promise ? await searchParams : searchParams
   const initialRoomId = params?.room ?? null
-  const initialView = (params?.view === 'inbox' ? 'inbox' : 'rooms') as 'rooms' | 'inbox'
-  return <ChatPageClient initialRoomId={initialRoomId} initialView={initialView} />
+  // View parameter is deprecated - we only show rooms now (no DM tab)
+  return <ChatPageClient initialRoomId={initialRoomId} />
 }

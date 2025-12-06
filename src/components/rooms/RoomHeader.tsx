@@ -808,16 +808,7 @@ function MembersList({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs px-2 py-1 bg-slate-700 rounded">{member.role}</span>
-                    {!isCurrentUser && (
-                      <button
-                        onClick={() => handleMessageUser(member.user.id)}
-                        disabled={messagingUserId === member.user.id}
-                        className="px-2 py-1 text-xs bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-700 disabled:opacity-50 rounded"
-                        title="Message user"
-                      >
-                        {messagingUserId === member.user.id ? '...' : '💬'}
-                      </button>
-                    )}
+                    {/* DM feature disabled - message button removed */}
                     {canTransferOwnership && member.role !== RoomRole.OWNER && !isCurrentUser && (
                       <button
                         onClick={() => handleTransferOwnership(member.user.id)}

@@ -143,15 +143,18 @@ export async function GET(request: Request) {
       },
     })
 
-    const rooms = memberships.map((m) => ({
-      ...m.room,
-      role: m.role,
-      lastMessage: m.room.messages[0] || null,
-      // For DM rooms, include the other user
-      otherUser: m.room.type === 'DM' && m.room.members[0] ? m.room.members[0].user : null,
-    }))
+    const rooms = memberships
+      .map((m) => ({
+        ...m.room,
+        role: m.role,
+        lastMessage: m.room.messages[0] || null,
+        // For DM rooms, include the other user (though DMs are filtered out below)
+        otherUser: m.room.type === 'DM' && m.room.members[0] ? m.room.members[0].user : null,
+      }))
+      // Filter out DM and TICKET rooms - DMs are removed from UI, tickets are only accessible via /tickets page
+      .filter((r) => r.type === 'PUBLIC' || r.type === 'PRIVATE')
 
-    console.log('GET /api/chat/rooms - Found', rooms.length, 'rooms for user', session.user.id)
+    console.log('GET /api/chat/rooms - Found', rooms.length, 'rooms for user', session.user.id, '(filtered: DM and TICKET excluded)')
 
     return Response.json({
       ok: true,

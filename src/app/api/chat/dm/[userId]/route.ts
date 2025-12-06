@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic'
  * POST /api/chat/dm/:userId
  * Get or create a DM room with the specified user
  * Returns existing DM room if one exists, otherwise creates a new one
+ * 
+ * NOTE: DM feature is disabled - this endpoint returns 403
  */
 export async function POST(
   request: Request,
@@ -23,6 +25,13 @@ export async function POST(
         message: 'Unauthorized',
       }, { status: 401 })
     }
+
+    // DM feature is disabled - block all DM creation
+    return Response.json({
+      ok: false,
+      code: 'FEATURE_DISABLED',
+      message: 'Direct Messages feature is currently disabled',
+    }, { status: 403 })
 
     const { userId: targetUserId } = await params
 

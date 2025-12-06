@@ -22,7 +22,7 @@ For a quick demonstration, see **DEMO_SCRIPT.md** — a 5–7 minute walkthrough
 **Accessly** is the name of the codebase.  
 **SolaceDesk** is the product scenario used for demonstration.
 
-SolaceDesk is a helpdesk-style workspace where internal teams (engineering, design, product, support) collaborate with external clients inside shared rooms and ticket threads. The seed data reflects this scenario: team rooms, client rooms, and ticket rooms with realistic activity.
+SolaceDesk is a helpdesk-style workspace where internal teams (engineering, design, product, support) collaborate in shared rooms and manage customer support tickets. The seed data reflects this scenario: team rooms and ticket rooms with realistic activity.
 
 Enterprise-grade realtime chat and helpdesk platform with role-based authentication, threaded conversations, ticket support, full-text search, observability dashboard, and comprehensive audit logging.
 
@@ -77,7 +77,7 @@ Traditional forums are great for organized, searchable discussions but lack real
 - **Persistent Context**: All conversations are searchable and archived, maintaining context over time
 - **Hybrid Use Cases**: 
   - **Team Collaboration**: Public rooms for team discussions, private rooms for sensitive topics
-  - **Customer Support**: Public ticket submission with threaded agent responses
+  - **Customer Support**: Public ticket submission with threaded agent responses (tickets managed separately from team rooms)
   - **Community Forums**: Discoverable public rooms with real-time engagement
 
 ### Key Differentiators
@@ -93,7 +93,7 @@ Traditional forums are great for organized, searchable discussions but lack real
 ### Use Cases
 
 - **Enterprise Teams**: Internal collaboration with public/private rooms, threaded discussions, and search
-- **Customer Support**: Public ticket system with agent assignment, status tracking, and metrics
+- **Customer Support**: Public ticket system with agent assignment, status tracking, and metrics (tickets accessible via dedicated tickets page)
 - **Community Platforms**: Discoverable forums with real-time chat engagement
 - **Helpdesk Systems**: Ticket management with threaded conversations and audit trails
 
@@ -158,17 +158,16 @@ Real-time chat with hierarchical threading support:
 - **Presence Indicators**: See who's online in real-time
 - **Typing Indicators**: Know when someone is typing
 
-### 3. Direct Messages
+### 3. Support Tickets
 
-One-on-one conversations with auto-created DM rooms:
-
-![Direct Messages](./docs/assets/screenshots/direct-messages.png)
+Customer support ticket system with threaded conversations:
 
 **Features**:
-- **Auto-Creation**: DM rooms created automatically when messaging a user
-- **No Duplicates**: Ensures exactly one DM room per user pair
-- **Private**: DMs are hidden from public discovery
-- **Thread Support**: Full threading capabilities in DMs
+- **Public Submission**: Anyone can submit tickets via `/support` page (no authentication required)
+- **Admin Management**: Tickets managed via `/tickets` page (admin only)
+- **Status Tracking**: OPEN, WAITING, RESOLVED status with admin controls
+- **Thread Support**: Full threading capabilities in ticket conversations
+- **Separate from Rooms**: Tickets are managed separately and do not appear in team room lists
 
 ### 4. Admin Dashboard
 
@@ -323,8 +322,11 @@ Accessly requires a **long-lived Node.js process** for real-time features:
 - **Room Types**: 
   - Public rooms (anyone can discover and join)
   - Private rooms (invite-only, hidden from discovery)
-  - Direct Messages (DM) between two users (no duplicates, auto-created)
   - Support Tickets (TICKET) with status tracking (OPEN/WAITING/RESOLVED)
+    - Created via public support form (`/support`)
+    - Managed via tickets page (`/tickets` - admin only)
+    - Accessible via direct URL (`/chat?room={ticketId}`)
+    - **Note**: Tickets are separate from team rooms and do not appear in chat sidebar
 - **Room Management**:
   - Create rooms with title, description, tags, and type
   - Edit room metadata (OWNER only)
@@ -374,10 +376,15 @@ Accessly requires a **long-lived Node.js process** for real-time features:
   - Update ticket status
   - Assign tickets to admins
   - Thread structure: first message is main issue, replies are threads
+  - **Note**: Tickets are separate from team rooms and only accessible via the tickets page or direct URL (`/chat?room={ticketId}`)
 - **Ticket Metrics**: 
   - Last responder tracking
   - Average response time calculation
   - Assigned owner display
+- **Room Separation**:
+  - Team rooms (PUBLIC/PRIVATE) appear in chat sidebar and home page
+  - Tickets are managed separately and do not appear in the room list
+  - Chat sidebar shows only PUBLIC and PRIVATE rooms for team collaboration
 
 ### Full-Text Search
 - **PostgreSQL tsvector**: Fast full-text search with GIN indexes
@@ -586,7 +593,7 @@ Once the app starts, you can sign in with any of these accounts:
 
 **Demo Data Includes:**
 - Multiple users (admins, agents, clients)
-- Various room types (team rooms, private rooms, DMs, tickets)
+- Various room types (team rooms, private rooms, tickets)
 - Realistic message history with threaded conversations
 - Room memberships and permissions
 - Tags and room metadata
@@ -797,7 +804,7 @@ src/
 │   │   │   │   │   └── route.ts # Get/update room details
 │   │   │   ├── messages/  # Message CRUD
 │   │   │   │   └── [messageId]/ # Message actions (edit, delete, reactions)
-│   │   │   └── dm/        # Direct message creation
+│   │   │   └── dm/        # Direct message creation (disabled)
 │   │   ├── support/        # Public support tickets
 │   │   │   └── tickets/   # Ticket creation (no auth)
 │   │   ├── tickets/       # Ticket management (admin)
@@ -911,7 +918,7 @@ src/
 - `POST /api/chat/messages/[messageId]/reactions` - Add/remove emoji reaction
 
 ### Direct Messages
-- `POST /api/chat/dm/:userId` - Create or get existing DM room
+- `POST /api/chat/dm/:userId` - Create or get existing DM room (disabled - returns 403)
 
 ### Support Tickets
 - `POST /api/support/tickets` - Create support ticket (public, no auth)
@@ -954,8 +961,7 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
 ## User Interface
 
 ### Home Page (Forum)
-- **My Rooms Section**: Displays rooms you've joined with last message preview
-- **Direct Messages Section**: Shows DM rooms with last message preview
+- **My Rooms Section**: Displays PUBLIC and PRIVATE rooms you've joined with last message preview
 - **Discover Section**: Browse public rooms with:
   - Search bar (title, description)
   - Tag filter chips
@@ -965,7 +971,7 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
 - **Create Room**: Modal form accessible from header
 
 ### Chat Page
-- **Sidebar**: List of joined rooms and direct messages
+- **Sidebar**: List of joined PUBLIC and PRIVATE rooms (tickets accessible via `/tickets` page)
 - **Chat Area**: Messages with threading support
   - Root messages with reply buttons
   - Expandable/collapsible threads
@@ -974,14 +980,14 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
   - Deep-linking to specific threads
 - **Room Header**: 
   - Room title and description (editable by OWNER)
-  - Visibility badge (Public/Private/DM/Ticket)
+  - Visibility badge (Public/Private/Ticket)
   - Status badge for tickets (OPEN/WAITING/RESOLVED)
   - Tag badges
   - User role badge
   - Ticket info: assigned owner, last responder, average response time
   - Edit button (OWNER only)
   - Assign button (tickets, admin only)
-  - Invite button (OWNER/MODERATOR, hidden for DM/TICKET)
+  - Invite button (OWNER/MODERATOR, hidden for TICKET)
   - Members button
 - **Message Input**: 
   - Send messages with realtime delivery
@@ -1056,8 +1062,11 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
 ### Room Types
 - **PUBLIC**: Discoverable in forum, anyone can join
 - **PRIVATE**: Hidden from discovery, invite-only
-- **DM**: Direct message between exactly two users (auto-created, no duplicates)
 - **TICKET**: Support ticket with status tracking (OPEN/WAITING/RESOLVED)
+  - Created via public support form (`/support`)
+  - Managed via tickets page (`/tickets` - admin only)
+  - Accessible via direct URL (`/chat?room={ticketId}`)
+  - **Note**: Tickets are separate from team rooms and do not appear in chat sidebar
 
 ### Room Roles
 - **OWNER**: Created the room, can edit metadata, invite/remove members
@@ -1072,7 +1081,6 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
 - **Creator**: Tracks who created the room
 - **Metadata Editing**: OWNER can update title, description, tags (with audit logging)
 - **Member Management**: OWNER/MODERATOR can invite and remove members
-- **One-to-One DM Rule**: DMs have exactly two members, prevents duplicates
 - **Ticket Features**:
   - Status tracking (OPEN/WAITING/RESOLVED)
   - Admin assignment
@@ -1175,7 +1183,7 @@ Screenshots are available in the [Feature Tour](#feature-tour) section above. Al
 
 - `home-page.png` - Forum-style room discovery page
 - `chat-room.png` - Chat interface with threaded conversations
-- `direct-messages.png` - Direct message interface
+- `tickets-page.png` - Ticket management interface
 - `admin-dashboard.png` - Admin dashboard with user management
 - `telemetry-dashboard.png` - Observability dashboard with metrics
 - `search-results.png` - Search results with highlighting
