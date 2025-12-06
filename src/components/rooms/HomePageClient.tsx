@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { RoomCard } from './RoomCard'
 import { RoomFilters } from './RoomFilters'
 import { CreateRoomButton } from './CreateRoomButton'
@@ -47,6 +48,7 @@ interface HomePageClientProps {
     tag: string
     sort: string
   }
+  userRole?: 'USER' | 'ADMIN'
 }
 
 export function HomePageClient({
@@ -56,6 +58,7 @@ export function HomePageClient({
   initialHasMore,
   availableTags,
   initialFilters,
+  userRole = 'USER',
 }: HomePageClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -119,7 +122,25 @@ export function HomePageClient({
             <h1 className="text-3xl font-bold">Forum</h1>
             <p className="text-slate-400 mt-1">Discover and join discussion rooms</p>
           </div>
-          <CreateRoomButton />
+          <div className="flex items-center gap-4">
+            {/* Support CTA - visible for all users */}
+            <Link
+              href="/support"
+              className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+            >
+              Need help? Contact Support →
+            </Link>
+            {/* Tickets link - visible only for admins */}
+            {userRole === 'ADMIN' && (
+              <Link
+                href="/tickets"
+                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                View all tickets →
+              </Link>
+            )}
+            <CreateRoomButton />
+          </div>
         </div>
 
         {/* My Rooms Section */}

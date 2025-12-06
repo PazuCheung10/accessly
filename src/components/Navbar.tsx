@@ -89,6 +89,26 @@ export function Navbar() {
             <SearchBar className="flex-1" />
           </div>
 
+          <div className="flex items-center gap-4">
+            {/* Support Link - visible for all authenticated users */}
+            <Link
+              href="/support"
+              className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+            >
+              Support
+            </Link>
+
+            {/* Tickets Link - visible only for admins */}
+            {session.user.role === 'ADMIN' && (
+              <Link
+                href="/tickets"
+                className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+              >
+                Tickets
+              </Link>
+            )}
+          </div>
+
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-4">
               {/* User Avatar */}

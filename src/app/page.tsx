@@ -209,6 +209,9 @@ export default async function Home({
     )
   ).sort()
 
+  // Get user role from session
+  const userRole = session.user.role === 'ADMIN' ? 'ADMIN' : 'USER'
+
   return (
     <HomePageClient
       initialMyRooms={myRooms}
@@ -221,6 +224,7 @@ export default async function Home({
         tag,
         sort,
       }}
+      userRole={userRole}
     />
   )
 }
