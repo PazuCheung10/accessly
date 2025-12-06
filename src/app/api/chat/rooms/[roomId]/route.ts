@@ -63,6 +63,9 @@ export async function GET(
           },
         },
         members: {
+          where: {
+            role: 'OWNER',
+          },
           include: {
             user: {
               select: {
@@ -172,18 +175,6 @@ export async function GET(
       }
     }
 
-    // For DM rooms, get the other user (not the current user)
-    let otherUser = null
-    if (room.type === 'DM') {
-      const otherMember = room.members.find((m) => m.user.id !== dbUser.id)
-      otherUser = otherMember?.user || null
-    }
-
-    // For TICKET rooms, get the owner (member with OWNER role)
-    const owner = room.type === 'TICKET' 
-      ? room.members.find((m) => m.role === 'OWNER')?.user || null
-      : null
-
     return Response.json({
       ok: true,
       code: 'SUCCESS',
@@ -193,8 +184,7 @@ export async function GET(
           ...room,
           userRole: membership?.role || null,
           isMember: !!membership,
-          owner,
-          otherUser,
+          owner: room.members[0]?.user || null,
           lastResponder,
           averageResponseTime,
         },
