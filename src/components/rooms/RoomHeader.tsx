@@ -297,9 +297,19 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
     }
   }
 
+  // Clean title by removing department prefix like [TICKET][Security] or [Security]
+  const cleanTitle = (title: string | null) => {
+    if (!title) return ''
+    // Remove [TICKET][Department] or [Department] prefix
+    return title.replace(/^\[TICKET\]\[[^\]]+\]\s*/, '').replace(/^\[TICKET\]\s*/, '').replace(/^\[[^\]]+\]\s*/, '').trim()
+  }
+
   // For DM rooms, show other user's name/email; otherwise use room name/title
+  // For TICKET rooms, clean the title to remove department prefix
   const displayName = roomDetails?.type === 'DM' && roomDetails?.otherUser
     ? (roomDetails.otherUser.name || roomDetails.otherUser.email || roomName)
+    : roomDetails?.type === 'TICKET'
+    ? (cleanTitle(roomDetails?.title || '') || roomDetails?.name || roomName || 'Room')
     : (roomDetails?.title || roomDetails?.name || roomName || 'Room')
 
   const visibilityBadge = roomDetails?.type === 'PUBLIC'
@@ -338,6 +348,21 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
         return 'General'
       default:
         return department
+    }
+  }
+
+  const getDepartmentColor = (department: string | null) => {
+    switch (department) {
+      case 'IT_SUPPORT':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+      case 'BILLING':
+        return 'bg-green-500/20 text-green-400 border-green-500/30'
+      case 'PRODUCT':
+        return 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+      case 'GENERAL':
+        return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+      default:
+        return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
     }
   }
 
@@ -467,6 +492,13 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
         <span className={`px-2 py-1 text-xs font-semibold rounded border ${visibilityBadge.color}`}>
           {visibilityBadge.label}
         </span>
+        {roomDetails?.type === 'TICKET' && roomDetails?.ticketDepartment && (
+          <span
+            className={`px-2 py-1 text-xs font-semibold rounded border ${getDepartmentColor(roomDetails.ticketDepartment)}`}
+          >
+            {getDepartmentLabel(roomDetails.ticketDepartment)}
+          </span>
+        )}
         {roomDetails?.type === 'TICKET' && canChangeStatus ? (
           /* Status dropdown for admins */
           <select
@@ -512,7 +544,11 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
           {roomDetails?.ticketDepartment && (
             <div className="flex items-center gap-2 text-slate-400">
               <span className="font-medium text-slate-300">Department:</span>
-              <span>{getDepartmentLabel(roomDetails.ticketDepartment)}</span>
+              <span
+                className={`px-2 py-1 text-xs font-semibold rounded border ${getDepartmentColor(roomDetails.ticketDepartment)}`}
+              >
+                {getDepartmentLabel(roomDetails.ticketDepartment)}
+              </span>
             </div>
           )}
           {roomDetails?.owner && (

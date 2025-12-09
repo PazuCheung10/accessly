@@ -95,6 +95,27 @@ export function TicketsList() {
     }
   }
 
+  const getDepartmentColor = (department: string | null) => {
+    switch (department) {
+      case 'IT_SUPPORT':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+      case 'BILLING':
+        return 'bg-green-500/20 text-green-400 border-green-500/30'
+      case 'PRODUCT':
+        return 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+      case 'GENERAL':
+        return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+      default:
+        return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+    }
+  }
+
+  // Clean title by removing department prefix like [TICKET][Security] or [Security]
+  const cleanTitle = (title: string) => {
+    // Remove [TICKET][Department] or [Department] prefix
+    return title.replace(/^\[TICKET\]\[[^\]]+\]\s*/, '').replace(/^\[TICKET\]\s*/, '').replace(/^\[[^\]]+\]\s*/, '').trim()
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -165,7 +186,14 @@ export function TicketsList() {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold">{ticket.title}</h3>
+                    <h3 className="text-lg font-semibold">{cleanTitle(ticket.title)}</h3>
+                    {ticket.department && (
+                      <span
+                        className={`px-2 py-1 text-xs font-semibold rounded border ${getDepartmentColor(ticket.department)}`}
+                      >
+                        {getDepartmentLabel(ticket.department)}
+                      </span>
+                    )}
                     <span
                       className={`px-2 py-1 text-xs rounded border ${getStatusColor(ticket.status)}`}
                     >
@@ -177,11 +205,6 @@ export function TicketsList() {
                     {ticket.owner && (
                       <span className="ml-4">
                         Assigned to: {ticket.owner.name || ticket.owner.email}
-                      </span>
-                    )}
-                    {ticket.department && (
-                      <span className="ml-4">
-                        Department: {getDepartmentLabel(ticket.department)}
                       </span>
                     )}
                   </div>

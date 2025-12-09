@@ -106,6 +106,7 @@ export async function GET(request: Request) {
           title: ticket.title,
           description: ticket.description,
           status: ticket.status,
+          department: ticket.ticketDepartment,
           createdAt: ticket.createdAt.toISOString(),
           updatedAt: ticket.updatedAt.toISOString(),
           creator: ticket.creator,
