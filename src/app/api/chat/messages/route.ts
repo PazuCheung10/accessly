@@ -164,6 +164,13 @@ export async function GET(request: Request) {
     // Fetch messages with pagination (tests expect simple structure)
     const cursorObj = after ? { id: after } : undefined
     
+    console.log('🔍 GET /api/chat/messages - Fetching messages:', {
+      roomId,
+      limit,
+      cursor: cursorObj,
+      after,
+    })
+    
     const allMessages = await prisma.message.findMany({
       where: {
         roomId,
@@ -197,6 +204,13 @@ export async function GET(request: Request) {
           },
         },
       },
+    })
+
+    console.log('✅ GET /api/chat/messages - Messages fetched:', {
+      roomId,
+      messageCount: allMessages.length,
+      firstMessageId: allMessages[0]?.id,
+      lastMessageId: allMessages[allMessages.length - 1]?.id,
     })
 
     // For pagination tests, just use allMessages directly
