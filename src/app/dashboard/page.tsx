@@ -13,7 +13,7 @@ export default async function DashboardPage() {
     redirect('/sign-in?callbackUrl=/')
   }
   
-  // Redirect authenticated users to home (forum page)
+  // Redirect authenticated users to home (Team Workspace page)
   redirect('/')
 
   // Dashboard is accessible to both USER and ADMIN roles

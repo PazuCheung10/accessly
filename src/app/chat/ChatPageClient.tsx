@@ -189,7 +189,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
           }
         }
 
-        // Note: Available rooms are now shown on the home page (forum)
+        // Note: Available rooms are now shown on the home page (Team Workspace)
         // Chat page only shows rooms the user has joined
       } catch (err) {
         console.error('Error fetching rooms:', err)

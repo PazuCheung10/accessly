@@ -412,6 +412,18 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
             </form>
           ) : (
             <>
+              {/* Breadcrumb for tickets */}
+              {roomDetails?.type === 'TICKET' && (
+                <div className="mb-2">
+                  <Link
+                    href="/tickets"
+                    className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors inline-flex items-center gap-1"
+                  >
+                    <span>←</span>
+                    <span>Support Tickets</span>
+                  </Link>
+                </div>
+              )}
               <div className="flex items-center gap-3 mb-1">
                 {roomDetails?.type === 'DM' && roomDetails?.otherUser?.image && (
                   <img
@@ -421,14 +433,6 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
                   />
                 )}
                 <h2 className="text-xl font-semibold flex-1">{displayName}</h2>
-                {roomDetails?.type === 'TICKET' && (
-                  <Link
-                    href="/tickets"
-                    className="text-sm text-cyan-400 hover:text-cyan-300 underline whitespace-nowrap"
-                  >
-                    ← Back to tickets
-                  </Link>
-                )}
               </div>
               {roomDetails?.type === 'DM' && roomDetails?.otherUser?.email && (
                 <p className="text-sm text-slate-400 mb-2">{roomDetails.otherUser.email}</p>
@@ -489,36 +493,47 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
 
       {/* Badges and Info */}
       <div className="flex flex-wrap items-center gap-2 mb-2">
-        <span className={`px-2 py-1 text-xs font-semibold rounded border ${visibilityBadge.color}`}>
-          {visibilityBadge.label}
-        </span>
-        {roomDetails?.type === 'TICKET' && roomDetails?.ticketDepartment && (
-          <span
-            className={`px-2 py-1 text-xs font-semibold rounded border ${getDepartmentColor(roomDetails.ticketDepartment)}`}
-          >
-            {getDepartmentLabel(roomDetails.ticketDepartment)}
-          </span>
+        {roomDetails?.type === 'TICKET' ? (
+          <>
+            {/* For tickets, show department and status prominently first */}
+            {roomDetails?.ticketDepartment && (
+              <span
+                className={`px-3 py-1.5 text-sm font-semibold rounded border ${getDepartmentColor(roomDetails.ticketDepartment)}`}
+              >
+                {getDepartmentLabel(roomDetails.ticketDepartment)}
+              </span>
+            )}
+            {canChangeStatus ? (
+              /* Status dropdown for admins */
+              <select
+                value={roomDetails.status || 'OPEN'}
+                onChange={(e) => handleStatusChange(e.target.value as 'OPEN' | 'WAITING' | 'RESOLVED')}
+                disabled={isUpdatingStatus}
+                className={`px-3 py-1.5 text-sm font-semibold rounded border ${
+                  statusBadge?.color || 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                } bg-slate-900 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <option value="OPEN">OPEN</option>
+                <option value="WAITING">WAITING</option>
+                <option value="RESOLVED">RESOLVED</option>
+              </select>
+            ) : statusBadge ? (
+              /* Read-only status badge for non-admins */
+              <span className={`px-3 py-1.5 text-sm font-semibold rounded border ${statusBadge.color}`}>
+                {statusBadge.label}
+              </span>
+            ) : null}
+            <span className={`px-2 py-1 text-xs font-semibold rounded border ${visibilityBadge.color}`}>
+              {visibilityBadge.label}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className={`px-2 py-1 text-xs font-semibold rounded border ${visibilityBadge.color}`}>
+              {visibilityBadge.label}
+            </span>
+          </>
         )}
-        {roomDetails?.type === 'TICKET' && canChangeStatus ? (
-          /* Status dropdown for admins */
-          <select
-            value={roomDetails.status || 'OPEN'}
-            onChange={(e) => handleStatusChange(e.target.value as 'OPEN' | 'WAITING' | 'RESOLVED')}
-            disabled={isUpdatingStatus}
-            className={`px-2 py-1 text-xs font-semibold rounded border ${
-              statusBadge?.color || 'bg-slate-500/20 text-slate-400 border-slate-500/30'
-            } bg-slate-900 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            <option value="OPEN">OPEN</option>
-            <option value="WAITING">WAITING</option>
-            <option value="RESOLVED">RESOLVED</option>
-          </select>
-        ) : statusBadge ? (
-          /* Read-only status badge for non-admins */
-          <span className={`px-2 py-1 text-xs font-semibold rounded border ${statusBadge.color}`}>
-            {statusBadge.label}
-          </span>
-        ) : null}
         {roomDetails?.tags && roomDetails.tags.length > 0 && (
           <>
             {roomDetails.tags.map((tag) => (

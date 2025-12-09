@@ -119,8 +119,8 @@ export function HomePageClient({
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Forum</h1>
-            <p className="text-slate-400 mt-1">Discover and join discussion rooms</p>
+            <h1 className="text-3xl font-bold">Team Workspace</h1>
+            <p className="text-slate-400 mt-1">Internal collaboration rooms and customer support tickets in one place</p>
           </div>
           <div className="flex items-center gap-4">
             {/* Support CTA - visible for all users */}

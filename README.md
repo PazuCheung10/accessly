@@ -22,7 +22,7 @@ For a quick demonstration, see **DEMO_SCRIPT.md** — a 5–7 minute walkthrough
 **Accessly** is the name of the codebase.  
 **SolaceDesk** is the product scenario used for demonstration.
 
-SolaceDesk is a helpdesk-style workspace where internal teams (engineering, design, product, support) collaborate in shared rooms and manage customer support tickets. The seed data reflects this scenario: team rooms and ticket rooms with realistic activity.
+SolaceDesk is an internal helpdesk workspace for a single company. Internal teams (engineering, design, product, support) collaborate in shared rooms and manage customer support tickets in one unified platform. The seed data reflects this scenario: team collaboration rooms and support ticket rooms with realistic activity.
 
 Enterprise-grade realtime chat and helpdesk platform with role-based authentication, threaded conversations, ticket support, full-text search, observability dashboard, and comprehensive audit logging.
 
@@ -65,20 +65,17 @@ That's it! The demo script will:
 
 ## Product Overview
 
-**Accessly** is a **Forum + Chat hybrid platform** that combines the best of both worlds: the discoverability and organization of forums with the real-time interactivity of modern chat applications.
+**SolaceDesk** is an **internal helpdesk workspace** that combines team collaboration rooms with customer support ticket management in one unified platform.
 
-### Why Forum + Chat?
+### Internal Helpdesk Workspace
 
-Traditional forums are great for organized, searchable discussions but lack real-time engagement. Modern chat apps excel at instant communication but struggle with context and discoverability. Accessly bridges this gap:
+SolaceDesk provides a single place for internal teams to collaborate and manage customer support:
 
-- **Forum-Style Discovery**: Browse and search public rooms like a forum, with tags, categories, and full-text search
-- **Real-Time Chat**: Instant messaging with Socket.io, typing indicators, and presence tracking
-- **Threaded Conversations**: Reply to specific messages creating nested threads (like Slack/Discord)
+- **Team Collaboration Rooms**: Internal teams collaborate in public and private rooms with real-time chat, threaded conversations, and full-text search
+- **Support Ticket Management**: Customer support tickets are created via public form, managed by admins, and handled through threaded conversations
+- **Unified Experience**: Both team rooms and support tickets use the same chat interface, making it easy for staff to switch between collaboration and support work
+- **Real-Time Communication**: Instant messaging with Socket.io, typing indicators, and presence tracking
 - **Persistent Context**: All conversations are searchable and archived, maintaining context over time
-- **Hybrid Use Cases**: 
-  - **Team Collaboration**: Public rooms for team discussions, private rooms for sensitive topics
-  - **Customer Support**: Public ticket submission with threaded agent responses (tickets managed separately from team rooms)
-  - **Community Forums**: Discoverable public rooms with real-time engagement
 
 ### Key Differentiators
 
@@ -92,10 +89,9 @@ Traditional forums are great for organized, searchable discussions but lack real
 
 ### Use Cases
 
-- **Enterprise Teams**: Internal collaboration with public/private rooms, threaded discussions, and search
-- **Customer Support**: Public ticket system with agent assignment, status tracking, and metrics (tickets accessible via dedicated tickets page)
-- **Community Platforms**: Discoverable forums with real-time chat engagement
-- **Helpdesk Systems**: Ticket management with threaded conversations and audit trails
+- **Internal Team Collaboration**: Internal staff collaborate in public/private rooms with threaded discussions and search
+- **Customer Support Management**: Support tickets created via public form, managed by admins with status tracking, department categorization, and threaded conversations
+- **Unified Helpdesk**: Single workspace where internal teams can collaborate and handle customer support tickets in one place
 
 ## Architecture
 
@@ -130,18 +126,18 @@ See [ARCHITECTURE_EXPLAINED.md](./ARCHITECTURE_EXPLAINED.md) for details.
 
 ## Feature Tour
 
-### 1. Home Page - Forum-Style Discovery
+### 1. Team Workspace - Internal Collaboration
 
-The home page combines forum-style room discovery with modern UX:
+The home page provides a workspace for internal team collaboration:
 
 ![Home Page](./docs/assets/screenshots/home-page.png)
 
 **Features**:
-- **My Rooms**: Quick access to rooms you've joined with last message preview
-- **Direct Messages**: One-on-one conversations with other users
-- **Discover Section**: Browse public rooms with search, tag filters, and sorting
+- **My Rooms**: Quick access to team rooms you've joined with last message preview
+- **Discover Section**: Browse public team rooms with search, tag filters, and sorting
 - **Room Cards**: Display title, description, tags, member count, and last message snippet
-- **Create Room**: Modal form to create new public or private rooms
+- **Create Room**: Modal form to create new public or private team rooms
+- **Support Link**: Quick access to submit support tickets
 
 ### 2. Chat Room - Threaded Conversations
 
@@ -164,10 +160,12 @@ Customer support ticket system with threaded conversations:
 
 **Features**:
 - **Public Submission**: Anyone can submit tickets via `/support` page (no authentication required)
-- **Admin Management**: Tickets managed via `/tickets` page (admin only)
+- **Department Categorization**: Tickets are categorized by department (IT Support, Billing, Product, General)
+- **Admin Management**: Tickets managed via `/tickets` page (admin only) with filtering and status controls
 - **Status Tracking**: OPEN, WAITING, RESOLVED status with admin controls
 - **Thread Support**: Full threading capabilities in ticket conversations
-- **Separate from Rooms**: Tickets are managed separately and do not appear in team room lists
+- **Ticket Chat Interface**: Tickets accessed via `/chat?room={ticketId}` with breadcrumb navigation back to ticket list
+- **Separate from Team Rooms**: Tickets are managed separately and do not appear in team room lists
 
 ### 4. Admin Dashboard
 
@@ -334,16 +332,18 @@ Accessly requires a **long-lived Node.js process** for real-time features:
   - Remove members (OWNER/MODERATOR)
   - View member list with roles
 - **Room Header**: 
-  - Full metadata display: title, description, tags, type badge (PUBLIC/PRIVATE/DM/TICKET)
+  - Full metadata display: title, description, tags, type badge (PUBLIC/PRIVATE/TICKET)
   - Status badge for tickets (OPEN/WAITING/RESOLVED)
+  - Department badge for tickets (IT Support, Billing, Product, General)
+  - Breadcrumb navigation back to tickets list for ticket rooms
   - Inline editing for OWNER (title, description, tags)
   - Ticket-specific info: assigned owner, last responder, average response time
   - "Assign to..." button for ticket reassignment (admin only)
-  - Visibility badges (Public/Private/DM/Ticket)
+  - Visibility badges (Public/Private/Ticket)
   - Tag display
   - User role badge
   - Edit button (OWNER)
-  - Invite button (OWNER/MODERATOR, hidden for DM/TICKET)
+  - Invite button (OWNER/MODERATOR, hidden for TICKET)
   - Members button with count
 - **Message Actions**:
   - Edit own messages (within 10 minutes)
@@ -917,8 +917,6 @@ src/
 - `DELETE /api/chat/messages/[messageId]` - Delete message (author only, soft delete)
 - `POST /api/chat/messages/[messageId]/reactions` - Add/remove emoji reaction
 
-### Direct Messages
-- `POST /api/chat/dm/:userId` - Create or get existing DM room (disabled - returns 403)
 
 ### Support Tickets
 - `POST /api/support/tickets` - Create support ticket (public, no auth)
@@ -960,7 +958,7 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
 
 ## User Interface
 
-### Home Page (Forum)
+### Team Workspace
 - **My Rooms Section**: Displays PUBLIC and PRIVATE rooms you've joined with last message preview
 - **Discover Section**: Browse public rooms with:
   - Search bar (title, description)
@@ -1130,8 +1128,8 @@ pnpm check:ssg        # Check SSG safety
 
 ## Navigation Flow
 
-1. **After Login** → Redirects to home page (forum) (`/`)
-2. **Home Page** → Forum-style room discovery and browsing
+1. **After Login** → Redirects to Team Workspace (`/`)
+2. **Team Workspace** → Internal collaboration rooms and customer support tickets in one place
 3. **Click Room Card** → Navigates to `/chat?room={roomId}` (auto-joins if public)
 4. **Chat Page** → Server component reads URL params, passes to client component
 5. **Chat Interface** → Shows only joined rooms, full chat interface with persistent state
