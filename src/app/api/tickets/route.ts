@@ -101,7 +101,8 @@ export async function GET(request: Request) {
       ok: true,
       data: {
         tickets: tickets.map((ticket) => ({
-          id: ticket.id,
+          id: ticket.id, // This IS the room.id (tickets are Room records with type='TICKET')
+          roomId: ticket.id, // Explicitly include roomId for clarity (same as id)
           name: ticket.name,
           title: ticket.title,
           description: ticket.description,

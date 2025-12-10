@@ -435,23 +435,36 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
 
               return (
                 <div className="space-y-1">
-                  {tickets.map((ticket) => (
-                    <button
-                      key={ticket.id}
-                      onClick={() => {
-                        if (roomId !== ticket.id) {
-                          setRoomName(cleanTitle(ticket.title) || ticket.name || 'Ticket')
-                          setRoomId(ticket.id)
-                          const params = new URLSearchParams(window.location.search)
-                          params.set('room', ticket.id)
-                          router.push(`/chat?${params.toString()}`, { scroll: false })
-                        }
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
-                        roomId === ticket.id
-                          ? 'bg-cyan-600 text-white'
-                          : 'bg-slate-800 hover:bg-slate-700'
-                      }`}
+                  {tickets.map((ticket) => {
+                    // Use ticket.roomId explicitly (same as ticket.id, but makes intent clear)
+                    // Tickets ARE Room records, so ticket.id === ticket.roomId === room.id
+                    const ticketRoomId = ticket.roomId || ticket.id
+                    
+                    // DEBUG: Log ticket roomId mapping
+                    console.log('DEBUG ticket chat', {
+                      ticketId: ticket.id,
+                      ticketRoomId: ticket.roomId || ticket.id,
+                      roomIdUsedForMessages: ticketRoomId,
+                      match: ticket.id === ticketRoomId,
+                    })
+                    
+                    return (
+                      <button
+                        key={ticket.id}
+                        onClick={() => {
+                          if (roomId !== ticketRoomId) {
+                            setRoomName(cleanTitle(ticket.title) || ticket.name || 'Ticket')
+                            setRoomId(ticketRoomId)
+                            const params = new URLSearchParams(window.location.search)
+                            params.set('room', ticketRoomId)
+                            router.push(`/chat?${params.toString()}`, { scroll: false })
+                          }
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                          roomId === ticketRoomId
+                            ? 'bg-cyan-600 text-white'
+                            : 'bg-slate-800 hover:bg-slate-700'
+                        }`}
                     >
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center justify-between">

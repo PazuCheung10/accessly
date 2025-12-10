@@ -510,6 +510,13 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     try {
       // Ensure loading state is true (might already be, but be explicit)
       setIsLoadingMessages(true)
+      
+      // DEBUG: Log roomId being used for messages API
+      console.log('DEBUG ChatRoom fetchInitial messages', {
+        roomId,
+        roomName,
+      })
+      
       const res = await fetch(`/api/chat/messages?roomId=${roomId}&limit=50`)
       // Be forgiving so tests don't break
       if (!res || typeof res.json !== 'function') {
