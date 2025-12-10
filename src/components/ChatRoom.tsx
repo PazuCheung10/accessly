@@ -807,22 +807,28 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
       const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
       const filtered = currentMessages.filter((m: Msg) => m.id !== optimisticMessage.id)
 
-      console.log('📥 API response received:', {
-        savedMessageId: savedMessage.id,
-        savedUserId: savedMessage.user?.id,
-        optimisticId: optimisticMessage.id,
-      })
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('📥 API response received:', {
+          savedMessageId: savedMessage.id,
+          savedUserId: savedMessage.user?.id,
+          optimisticId: optimisticMessage.id,
+        })
+      }
 
       // Check if saved message already exists (from Socket.io event)
       const exists = filtered.some((m: Msg) => m.id === savedMessage.id)
       if (!exists) {
-        console.log('✅ Adding saved message from API response:', savedMessage.id)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('✅ Adding saved message from API response:', savedMessage.id)
+        }
         // Replace optimistic with real message
         const updated = [...filtered, savedMessage]
         setRoom(roomId, { messages: updated })
       } else {
         // Already added via Socket.io, just remove optimistic
-        console.log('⚠️ Message already exists from socket, just removing optimistic:', savedMessage.id)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('⚠️ Message already exists from socket, just removing optimistic:', savedMessage.id)
+        }
         setRoom(roomId, { messages: filtered })
       }
       
