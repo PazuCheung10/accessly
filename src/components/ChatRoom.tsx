@@ -950,8 +950,8 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
                       roomId={roomId}
                       onMessageUpdate={(messageId, updates) => {
                         const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
-                        const updated = currentMessages.map((msg) =>
-                          msg.id === messageId ? { ...msg, ...updates } : msg
+                        const updated: Msg[] = currentMessages.map((msg) =>
+                          msg.id === messageId ? { ...msg, ...updates } as Msg : msg
                         )
                         setRoom(roomId, { messages: updated })
                       }}
@@ -967,8 +967,8 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
                         roomId={roomId}
                         onMessageUpdate={(messageId, updates) => {
                           const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
-                          const updated = currentMessages.map((msg) =>
-                            msg.id === messageId ? { ...msg, ...updates } : msg
+                          const updated: Msg[] = currentMessages.map((msg) =>
+                            msg.id === messageId ? { ...msg, ...updates } as Msg : msg
                           )
                           setRoom(roomId, { messages: updated })
                         }}
