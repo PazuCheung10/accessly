@@ -269,16 +269,16 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   useEffect(() => {
     if (!session?.user?.id) return
 
-    // If room exists in cache (even if empty), don't fetch again
-    if (room) {
-      // optional: fetch incrementals after initial paint (only if we have messages)
-      if (room.messages?.length) {
-        void fetchNewerAfter()
-      }
+    // Check if we have messages (not just if room exists)
+    const hasMessages = !!room && Array.isArray(room.messages) && room.messages.length > 0
+
+    if (hasMessages) {
+      // Only fetch newer if we already have some messages
+      void fetchNewerAfter()
       return
     }
 
-    // No cache → fetch initial messages
+    // No room or no messages yet → fetch initial page
     void fetchInitial()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, session?.user?.id])
@@ -290,14 +290,16 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     const socket = initSocket(session.user.id)
 
     const handleMessageNew = (m: Msg) => {
-      if (m.roomId !== roomId || !m.user?.id) return
+      if (m.roomId !== roomId) return
 
+      // Allow system / imported messages without user.id
       console.log('📨 Socket message received:', {
         messageId: m.id,
         roomId: m.roomId,
         userId: m.userId,
-        parentMessageId: m.parentMessageId,
+        hasUser: !!m.user,
         userFromMessage: m.user?.id,
+        parentMessageId: m.parentMessageId,
       })
       
       // Check if message already exists (from optimistic update or previous socket event)
@@ -529,6 +531,15 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
       }
       const json = await res.json()
       
+      // DEBUG: Log raw JSON response
+      console.log('DEBUG ChatRoom fetchInitial raw JSON', {
+        roomId,
+        ok: json.ok,
+        hasData: !!json.data,
+        flatCount: json.data?.messages?.length ?? json.messages?.length ?? 0,
+        hierarchicalCount: json.data?.hierarchicalMessages?.length ?? 0,
+      })
+      
       // Check if API returned an error
       if (!json.ok) {
         console.error('❌ Messages API error:', {
@@ -545,15 +556,6 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
         isRestoringScrollRef.current = false
         return
       }
-      
-      // Debug: Log successful response
-      console.log('✅ Messages API response:', {
-        ok: json.ok,
-        hasData: !!json.data,
-        hierarchicalCount: json.data?.hierarchicalMessages?.length ?? 0,
-        flatCount: json.data?.messages?.length ?? json.messages?.length ?? 0,
-        roomId,
-      })
       
       // Use hierarchical messages if available, otherwise fall back to flat
       const hierarchical = json.data?.hierarchicalMessages
@@ -572,6 +574,13 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
         // keep all messages; do not filter by user.id
         msgs = json.data?.messages ?? json.messages ?? []
       }
+
+      // DEBUG: Log messages before upsert
+      console.log('DEBUG ChatRoom fetchInitial msgs before upsert', {
+        roomId,
+        count: msgs.length,
+        ids: msgs.map(m => m.id),
+      })
 
       // Store messages (even if empty); also set cursor & lastMessageId
       // Note: upsertMessages will create room entry, but we track initial fetch with ref

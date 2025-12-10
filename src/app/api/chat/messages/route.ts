@@ -88,6 +88,15 @@ export async function GET(request: Request) {
       }, { status: 200 }) // messages.test.ts expects 200 even on errors
     }
 
+    // DEBUG: Log access control info
+    console.log('DEBUG /api/chat/messages ACCESS', {
+      roomId,
+      dbUserId: dbUser.id,
+      dbUserRole: dbUser.role,
+      roomType: room.type,
+      isPrivate: room.isPrivate,
+    })
+
     // Use DB user ID (source of truth)
     const userId = dbUser.id
 
@@ -109,26 +118,28 @@ export async function GET(request: Request) {
 
     const isTicketRoom = room.type === 'TICKET'
     const isAdmin = dbUser.role === Role.ADMIN
+    const hasMembership = !!membership
 
-    // FINAL ACCESS CONTROL DECISION:
-    // For the scenario: dbUser.role = Role.ADMIN, room.type = 'TICKET', membership = null
-    // - isTicketRoom = true (room.type === 'TICKET')
-    // - isAdmin = true (dbUser.role === Role.ADMIN)
-    // - membership = null
-    // - Condition: if (isTicketRoom && isAdmin) → TRUE → ALLOW, skip to message fetch
-    // - This branch does NOT return 403/404, so we continue to fetch messages
-    if (isTicketRoom && isAdmin) {
-      // Admin on ticket → always allowed, skip membership check
-      // Continue to fetch messages (no return statement here)
-    } else if (!membership) {
-      // Not admin for ticket, or not a ticket room, and no membership → deny
-      // This branch is NOT taken for admin+ticket case
+    // Access control: Mirror the logic from /api/chat/rooms/[roomId]
+    // PRIVATE rooms: must have membership
+    if (room.type === 'PRIVATE' && !hasMembership) {
       return Response.json({
         ok: false,
         code: 'FORBIDDEN',
         message: 'Not a member of this room',
       }, { status: 200 }) // messages.test.ts expects 200 even on errors
     }
+
+    // TICKET rooms: must have membership OR be ADMIN
+    if (isTicketRoom && !hasMembership && !isAdmin) {
+      return Response.json({
+        ok: false,
+        code: 'FORBIDDEN',
+        message: 'Not a member of this ticket',
+      }, { status: 200 }) // messages.test.ts expects 200 even on errors
+    }
+
+    // PUBLIC / DM / TICKET+ADMIN fall through and are allowed
 
     // FINAL PRISMA QUERY FOR MESSAGES:
     // For admin+ticket case: filters ONLY by roomId and deletedAt
@@ -233,6 +244,16 @@ export async function GET(request: Request) {
     })
     
     const orderedMessages = after ? flatMessages : flatMessages.reverse()
+
+    // DEBUG: Log result before returning
+    console.log('DEBUG /api/chat/messages RESULT', {
+      roomId,
+      isTicketRoom,
+      isAdmin,
+      membership: hasMembership,
+      messageCount: orderedMessages.length,
+      messageIds: orderedMessages.map(m => m.id),
+    })
 
     return Response.json({
       ok: true,

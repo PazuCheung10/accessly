@@ -48,6 +48,15 @@ export const useChatStore = create<ChatStore>()(
 
       upsertMessages: (roomId, msgs, { asPrepend } = {}) =>
         set(s => {
+          // DEBUG: Log what comes in
+          console.log('DEBUG upsertMessages', {
+            roomId,
+            newCount: msgs.length,
+            newIds: msgs.map(m => m.id),
+            hasExistingRoom: !!s.rooms[roomId],
+            existingCount: s.rooms[roomId]?.messages?.length ?? 0,
+          })
+
           const r = s.rooms[roomId] ?? { messages: [], cursor: null, lastMessageId: null, scrollTop: null, lastFetchedAt: 0 }
           const existing = new Map(r.messages.map(m => [m.id, m]))
           for (const m of msgs) existing.set(m.id, m)
@@ -55,12 +64,23 @@ export const useChatStore = create<ChatStore>()(
           // If we're prepending older messages, merged is already sorted; nothing more to do.
           const newest = merged.length ? merged[merged.length-1].id : r.lastMessageId
           const oldest = merged.length ? merged[0].id : r.cursor
-          return {
+          
+          const next = {
             rooms: {
               ...s.rooms,
               [roomId]: { ...r, messages: merged, lastMessageId: newest, cursor: oldest, lastFetchedAt: Date.now() }
             }
           }
+
+          // DEBUG: Log what will be stored
+          const nextRoom = next.rooms[roomId]
+          console.log('DEBUG upsertMessages after merge', {
+            roomId,
+            finalCount: nextRoom?.messages?.length ?? 0,
+            finalIds: (nextRoom?.messages ?? []).map(m => m.id),
+          })
+
+          return next
         }),
 
       toggleThread: (roomId, messageId) =>
