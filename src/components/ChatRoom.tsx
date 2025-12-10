@@ -293,21 +293,25 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
       if (m.roomId !== roomId) return
 
       // Allow system / imported messages without user.id
-      console.log('📨 Socket message received:', {
-        messageId: m.id,
-        roomId: m.roomId,
-        userId: m.userId,
-        hasUser: !!m.user,
-        userFromMessage: m.user?.id,
-        parentMessageId: m.parentMessageId,
-      })
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('📨 Socket message received:', {
+          messageId: m.id,
+          roomId: m.roomId,
+          userId: m.userId,
+          hasUser: !!m.user,
+          userFromMessage: m.user?.id,
+          parentMessageId: m.parentMessageId,
+        })
+      }
       
       // Check if message already exists (from optimistic update or previous socket event)
       const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
       const exists = currentMessages.some((msg: Msg) => msg.id === m.id)
       
       if (exists) {
-        console.log('⚠️ Message already exists, skipping socket update:', m.id)
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('⚠️ Message already exists, skipping socket update:', m.id)
+        }
         return
       }
 
@@ -515,11 +519,13 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
       // Ensure loading state is true (might already be, but be explicit)
       setIsLoadingMessages(true)
       
-      // DEBUG: Log roomId being used for messages API
-      console.log('DEBUG ChatRoom fetchInitial messages', {
-        roomId,
-        roomName,
-      })
+      // DEBUG: Log roomId being used for messages API (development only)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('DEBUG ChatRoom fetchInitial messages', {
+          roomId,
+          roomName,
+        })
+      }
       
       const res = await fetch(`/api/chat/messages?roomId=${roomId}&limit=50`)
       // Be forgiving so tests don't break
@@ -531,14 +537,16 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
       }
       const json = await res.json()
       
-      // DEBUG: Log raw JSON response
-      console.log('DEBUG ChatRoom fetchInitial raw JSON', {
-        roomId,
-        ok: json.ok,
-        hasData: !!json.data,
-        flatCount: json.data?.messages?.length ?? json.messages?.length ?? 0,
-        hierarchicalCount: json.data?.hierarchicalMessages?.length ?? 0,
-      })
+      // DEBUG: Log raw JSON response (development only)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('DEBUG ChatRoom fetchInitial raw JSON', {
+          roomId,
+          ok: json.ok,
+          hasData: !!json.data,
+          flatCount: json.data?.messages?.length ?? json.messages?.length ?? 0,
+          hierarchicalCount: json.data?.hierarchicalMessages?.length ?? 0,
+        })
+      }
       
       // Check if API returned an error
       if (!json.ok) {
@@ -575,12 +583,14 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
         msgs = json.data?.messages ?? json.messages ?? []
       }
 
-      // DEBUG: Log messages before upsert
-      console.log('DEBUG ChatRoom fetchInitial msgs before upsert', {
-        roomId,
-        count: msgs.length,
-        ids: msgs.map(m => m.id),
-      })
+      // DEBUG: Log messages before upsert (development only)
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('DEBUG ChatRoom fetchInitial msgs before upsert', {
+          roomId,
+          count: msgs.length,
+          ids: msgs.map(m => m.id),
+        })
+      }
 
       // Store messages (even if empty); also set cursor & lastMessageId
       // Note: upsertMessages will create room entry, but we track initial fetch with ref
@@ -721,12 +731,14 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
       },
     }
 
-    console.log('📤 Sending message (optimistic):', {
-      tempId: optimisticMessage.id,
-      userId: optimisticUserId,
-      content,
-      parentMessageId,
-    })
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('📤 Sending message (optimistic):', {
+        tempId: optimisticMessage.id,
+        userId: optimisticUserId,
+        content,
+        parentMessageId,
+      })
+    }
 
     upsertMessages(roomId, [optimisticMessage])
 

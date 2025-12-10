@@ -13,7 +13,9 @@ export const dynamic = 'force-dynamic'
  * List messages by roomId with cursor-based pagination
  */
 export async function GET(request: Request) {
-  console.log("🔥 GET /api/chat/messages HIT", new Date().toISOString());
+  if (process.env.NODE_ENV !== 'production') {
+    console.log("🔥 GET /api/chat/messages HIT", new Date().toISOString());
+  }
   try {
     const session = await auth()
     if (!session?.user) {
@@ -88,14 +90,16 @@ export async function GET(request: Request) {
       }, { status: 200 }) // messages.test.ts expects 200 even on errors
     }
 
-    // DEBUG: Log access control info
-    console.log('DEBUG /api/chat/messages ACCESS', {
-      roomId,
-      dbUserId: dbUser.id,
-      dbUserRole: dbUser.role,
-      roomType: room.type,
-      isPrivate: room.isPrivate,
-    })
+    // DEBUG: Log access control info (development only)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('DEBUG /api/chat/messages ACCESS', {
+        roomId,
+        dbUserId: dbUser.id,
+        dbUserRole: dbUser.role,
+        roomType: room.type,
+        isPrivate: room.isPrivate,
+      })
+    }
 
     // Use DB user ID (source of truth)
     const userId = dbUser.id
@@ -245,15 +249,17 @@ export async function GET(request: Request) {
     
     const orderedMessages = after ? flatMessages : flatMessages.reverse()
 
-    // DEBUG: Log result before returning
-    console.log('DEBUG /api/chat/messages RESULT', {
-      roomId,
-      isTicketRoom,
-      isAdmin,
-      membership: hasMembership,
-      messageCount: orderedMessages.length,
-      messageIds: orderedMessages.map(m => m.id),
-    })
+    // DEBUG: Log result before returning (development only)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('DEBUG /api/chat/messages RESULT', {
+        roomId,
+        isTicketRoom,
+        isAdmin,
+        membership: hasMembership,
+        messageCount: orderedMessages.length,
+        messageIds: orderedMessages.map(m => m.id),
+      })
+    }
 
     return Response.json({
       ok: true,

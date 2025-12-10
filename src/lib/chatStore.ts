@@ -48,14 +48,16 @@ export const useChatStore = create<ChatStore>()(
 
       upsertMessages: (roomId, msgs, { asPrepend } = {}) =>
         set(s => {
-          // DEBUG: Log what comes in
-          console.log('DEBUG upsertMessages', {
-            roomId,
-            newCount: msgs.length,
-            newIds: msgs.map(m => m.id),
-            hasExistingRoom: !!s.rooms[roomId],
-            existingCount: s.rooms[roomId]?.messages?.length ?? 0,
-          })
+          // DEBUG: Log what comes in (development only)
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('DEBUG upsertMessages', {
+              roomId,
+              newCount: msgs.length,
+              newIds: msgs.map(m => m.id),
+              hasExistingRoom: !!s.rooms[roomId],
+              existingCount: s.rooms[roomId]?.messages?.length ?? 0,
+            })
+          }
 
           const r = s.rooms[roomId] ?? { messages: [], cursor: null, lastMessageId: null, scrollTop: null, lastFetchedAt: 0 }
           const existing = new Map(r.messages.map(m => [m.id, m]))
@@ -72,13 +74,15 @@ export const useChatStore = create<ChatStore>()(
             }
           }
 
-          // DEBUG: Log what will be stored
-          const nextRoom = next.rooms[roomId]
-          console.log('DEBUG upsertMessages after merge', {
-            roomId,
-            finalCount: nextRoom?.messages?.length ?? 0,
-            finalIds: (nextRoom?.messages ?? []).map(m => m.id),
-          })
+          // DEBUG: Log what will be stored (development only)
+          if (process.env.NODE_ENV !== 'production') {
+            const nextRoom = next.rooms[roomId]
+            console.log('DEBUG upsertMessages after merge', {
+              roomId,
+              finalCount: nextRoom?.messages?.length ?? 0,
+              finalIds: (nextRoom?.messages ?? []).map(m => m.id),
+            })
+          }
 
           return next
         }),
