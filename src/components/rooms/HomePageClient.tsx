@@ -15,6 +15,7 @@ interface Room {
   tags?: string[]
   type: 'PUBLIC' | 'PRIVATE' | 'DM' | 'TICKET'
   isPrivate: boolean
+  createdAt: string | Date
   _count: {
     members: number
     messages: number
@@ -34,14 +35,11 @@ interface Room {
     name: string | null
     image: string | null
   } | null
-  role?: string
+  role?: string | null
 }
 
 interface HomePageClientProps {
-  initialMyRooms: Room[]
-  initialDiscoverRooms: Room[]
-  initialCursor: string | null
-  initialHasMore: boolean
+  initialRooms: Room[]
   availableTags: string[]
   initialFilters: {
     q: string
@@ -52,10 +50,7 @@ interface HomePageClientProps {
 }
 
 export function HomePageClient({
-  initialMyRooms,
-  initialDiscoverRooms,
-  initialCursor,
-  initialHasMore,
+  initialRooms,
   availableTags,
   initialFilters,
   userRole = 'USER',
@@ -63,53 +58,51 @@ export function HomePageClient({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   
-  const [myRooms, setMyRooms] = useState<Room[]>(initialMyRooms)
-  const [discoverRooms, setDiscoverRooms] = useState<Room[]>(initialDiscoverRooms)
-  const [cursor, setCursor] = useState<string | null>(initialCursor)
-  const [hasMore, setHasMore] = useState(initialHasMore)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [allRooms] = useState<Room[]>(initialRooms)
+  const [filters, setFilters] = useState(initialFilters)
 
-  const handleLoadMore = async () => {
-    if (!cursor || isLoadingMore) return
-
-    setIsLoadingMore(true)
-    try {
-      const searchParams = new URLSearchParams(window.location.search)
-      searchParams.set('cursor', cursor)
-
-      const response = await fetch(`/api/chat/rooms/discover?${searchParams.toString()}`)
-      const data = await response.json()
-
-      if (data.ok && data.data?.rooms) {
-        setDiscoverRooms((prev) => [...prev, ...data.data.rooms])
-        setCursor(data.data.cursor)
-        setHasMore(data.data.hasMore)
-      }
-    } catch (err) {
-      console.error('Error loading more rooms:', err)
-    } finally {
-      setIsLoadingMore(false)
+  // Client-side filtering
+  const filteredRooms = allRooms.filter((room) => {
+    // Search filter
+    if (filters.q) {
+      const query = filters.q.toLowerCase()
+      const matchesSearch =
+        room.title.toLowerCase().includes(query) ||
+        room.name.toLowerCase().includes(query) ||
+        (room.description && room.description.toLowerCase().includes(query))
+      if (!matchesSearch) return false
     }
-  }
 
-  const handleFilterChange = (filters: { q: string; tag: string; sort: string }) => {
+    // Tag filter
+    if (filters.tag && room.tags) {
+      if (!room.tags.includes(filters.tag)) return false
+    }
+
+    return true
+  })
+
+  // Sort rooms
+  const sortedRooms = [...filteredRooms].sort((a, b) => {
+    switch (filters.sort) {
+      case 'new':
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      case 'members':
+        return (b._count.members || 0) - (a._count.members || 0)
+      case 'active':
+      default:
+        return (b._count.messages || 0) - (a._count.messages || 0)
+    }
+  })
+
+  const handleFilterChange = (newFilters: { q: string; tag: string; sort: string }) => {
     startTransition(() => {
-      // Reload discover rooms with new filters
+      setFilters(newFilters)
+      // Update URL without reloading
       const searchParams = new URLSearchParams()
-      if (filters.q) searchParams.set('q', filters.q)
-      if (filters.tag) searchParams.set('tag', filters.tag)
-      if (filters.sort) searchParams.set('sort', filters.sort)
-
-      fetch(`/api/chat/rooms/discover?${searchParams.toString()}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.ok && data.data?.rooms) {
-            setDiscoverRooms(data.data.rooms)
-            setCursor(data.data.cursor)
-            setHasMore(data.data.hasMore)
-          }
-        })
-        .catch((err) => console.error('Error filtering rooms:', err))
+      if (newFilters.q) searchParams.set('q', newFilters.q)
+      if (newFilters.tag) searchParams.set('tag', newFilters.tag)
+      if (newFilters.sort) searchParams.set('sort', newFilters.sort)
+      router.push(`/?${searchParams.toString()}`, { scroll: false })
     })
   }
 
@@ -143,22 +136,10 @@ export function HomePageClient({
           </div>
         </div>
 
-        {/* My Rooms Section */}
-        {myRooms.length > 0 && (
-          <section className="mb-12">
-            <h2 className="text-2xl font-semibold mb-4">My Rooms</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {myRooms.map((room) => (
-                <RoomCard key={room.id} room={room} role={room.role} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Discover Section */}
+        {/* Rooms Section */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-semibold">Discover Rooms</h2>
+            <h2 className="text-2xl font-semibold">Rooms</h2>
           </div>
 
           {/* Filters */}
@@ -168,7 +149,7 @@ export function HomePageClient({
           />
 
           {/* Loading State */}
-          {(isPending || isLoadingMore) && (
+          {isPending && (
             <div className="text-center py-8 text-slate-400">
               Loading...
             </div>
@@ -177,27 +158,12 @@ export function HomePageClient({
           {/* Rooms Grid */}
           {!isPending && (
             <>
-              {discoverRooms.length > 0 ? (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {discoverRooms.map((room) => (
-                      <RoomCard key={room.id} room={room} />
-                    ))}
-                  </div>
-
-                  {/* Load More Button */}
-                  {hasMore && (
-                    <div className="mt-8 text-center">
-                      <button
-                        onClick={handleLoadMore}
-                        disabled={isLoadingMore}
-                        className="px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        {isLoadingMore ? 'Loading...' : 'Load More'}
-                      </button>
-                    </div>
-                  )}
-                </>
+              {sortedRooms.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sortedRooms.map((room) => (
+                    <RoomCard key={room.id} room={room} role={room.role} />
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-12 text-slate-400">
                   <p className="text-lg mb-2">No rooms found</p>
