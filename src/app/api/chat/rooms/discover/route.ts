@@ -28,9 +28,12 @@ export async function GET(request: Request) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50)
 
     // Build where clause
+    // Only show PUBLIC_GLOBAL rooms (department === null)
+    // Department-specific rooms are NOT discoverable
     const where: any = {
       type: RoomType.PUBLIC, // Only public rooms
       isPrivate: false, // Explicitly filter out private rooms
+      department: null, // Only PUBLIC_GLOBAL rooms
     }
 
     // Search filter (title, name, description)

@@ -158,35 +158,48 @@ async function main() {
   // Hash password for all users
   const hashedPassword = await bcrypt.hash('demo123', 10)
 
+  // Local Department enum to match schema (before migration)
+  const Department = {
+    IT_SUPPORT: 'IT_SUPPORT',
+    BILLING: 'BILLING',
+    PRODUCT: 'PRODUCT',
+    DESIGN: 'DESIGN',
+  } as const
+
   const users = [
     {
       email: 'admin@solace.com',
       name: 'Admin',
       role: Role.ADMIN,
+      department: null, // Admins don't have a department (see all rooms)
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
     },
     {
       email: 'clara@solace.com',
       name: 'Clara',
       role: Role.ADMIN,
+      department: null, // Admins don't have a department (see all rooms)
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=clara',
     },
     {
       email: 'jacob@solace.com',
       name: 'Jacob',
       role: Role.USER,
+      department: Department.IT_SUPPORT,
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=jacob',
     },
     {
       email: 'may@solace.com',
       name: 'May',
       role: Role.USER,
+      department: Department.BILLING,
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=may',
     },
     {
       email: 'ethan@solace.com',
       name: 'Ethan',
       role: Role.USER,
+      department: Department.DESIGN,
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ethan',
     },
   ]
@@ -204,10 +217,10 @@ async function main() {
         ...userData,
         password: hashedPassword,
         emailVerified: new Date(),
-      },
+      } as any, // Use 'as any' to work around TypeScript types not including department until migration is run
     })
     createdUsers.push(user)
-    console.log(`   ✅ Created ${userData.role} user: ${userData.email}`)
+    console.log(`   ✅ Created ${userData.role} user: ${userData.email}${userData.department ? ` (${userData.department})` : ''}`)
   }
 
   const [admin1, admin2, user1, user2, user3] = createdUsers
@@ -245,9 +258,10 @@ async function main() {
       description: 'Official updates from the SolaceDesk team and company-wide news.',
       type: RoomType.PUBLIC,
       isPrivate: false,
+      department: null, // PUBLIC_GLOBAL - visible to all
       creatorId: admin1.id,
       tags: ['announcements', 'company', 'updates'],
-    },
+    } as any,
   })
 
   const techRoom = await prisma.room.create({
@@ -257,9 +271,10 @@ async function main() {
       description: 'Discuss bugs, deployments, and technical incidents related to the product.',
       type: RoomType.PUBLIC,
       isPrivate: false,
+      department: Department.IT_SUPPORT, // Department-specific
       creatorId: admin1.id,
       tags: ['engineering', 'incidents', 'bugs', 'deployments'],
-    },
+    } as any,
   })
 
   const randomRoom = await prisma.room.create({
@@ -269,9 +284,10 @@ async function main() {
       description: 'Casual conversations, celebrations, and off-topic chat for the team.',
       type: RoomType.PUBLIC,
       isPrivate: false,
+      department: null, // PUBLIC_GLOBAL - visible to all
       creatorId: admin2.id,
       tags: ['lounge', 'culture', 'off-topic'],
-    },
+    } as any,
   })
 
   const privateRoom = await prisma.room.create({
@@ -306,9 +322,10 @@ async function main() {
       description: 'Share notable customer feedback, pain points, and success stories.',
       type: RoomType.PUBLIC,
       isPrivate: false,
+      department: null, // PUBLIC_GLOBAL - visible to all
       creatorId: admin2.id,
       tags: ['customers', 'feedback', 'voice-of-customer'],
-    },
+    } as any,
   })
 
   const musicRoom = await prisma.room.create({
@@ -318,9 +335,10 @@ async function main() {
       description: 'Internal discussions about billing edge cases, refunds, and account policies.',
       type: RoomType.PUBLIC,
       isPrivate: false,
+      department: Department.BILLING, // Department-specific
       creatorId: admin2.id,
       tags: ['billing', 'accounts', 'payments'],
-    },
+    } as any,
   })
 
   const designRoom = await prisma.room.create({
@@ -330,9 +348,10 @@ async function main() {
       description: 'Collect UX feedback from tickets and discuss design improvements.',
       type: RoomType.PUBLIC,
       isPrivate: false,
+      department: Department.DESIGN, // Department-specific
       creatorId: admin1.id,
       tags: ['ux', 'design', 'research'],
-    },
+    } as any,
   })
 
   // TICKET rooms with different departments
@@ -400,11 +419,11 @@ async function main() {
   // ============================================
   console.log('👥 STEP 3: Adding members to rooms...')
 
-  // Public rooms: all users are members
-  const publicRooms = [generalRoom, techRoom, randomRoom]
+  // PUBLIC_GLOBAL rooms (department === null): all users are members
+  const publicGlobalRooms = [generalRoom, randomRoom, gamingRoom]
   const allUsers = [admin1, admin2, user1, user2, user3]
   
-  for (const room of publicRooms) {
+  for (const room of publicGlobalRooms) {
     for (const user of allUsers) {
       await prisma.roomMember.create({
         data: {
@@ -415,34 +434,77 @@ async function main() {
       })
     }
   }
-  console.log(`   ✅ Added all ${allUsers.length} users to ${publicRooms.length} public rooms`)
+  console.log(`   ✅ Added all ${allUsers.length} users to ${publicGlobalRooms.length} PUBLIC_GLOBAL rooms`)
 
-  // Joinable rooms: add some users but NOT jacob (user1)
-  const joinableRooms = [gamingRoom, musicRoom, designRoom]
-  const usersForJoinable = [admin1, admin2, user2, user3] // Exclude user1 (jacob)
-  
-  for (const room of joinableRooms) {
+  // Department-specific rooms: auto-join users to their department room
+  // IT_SUPPORT room (#engineering)
+  const itSupportUsers = [user1] // Jacob
+  for (const user of itSupportUsers) {
     await prisma.roomMember.create({
       data: {
-        userId: room.creatorId!,
-        roomId: room.id,
-        role: RoomRole.OWNER,
+        userId: user.id,
+        roomId: techRoom.id,
+        role: user.id === techRoom.creatorId ? RoomRole.OWNER : RoomRole.MEMBER,
       },
     })
-    
-    for (const user of usersForJoinable) {
-      if (user.id !== room.creatorId) {
-        await prisma.roomMember.create({
-          data: {
-            userId: user.id,
-            roomId: room.id,
-            role: RoomRole.MEMBER,
-          },
-        })
-      }
-    }
   }
-  console.log(`   ✅ Created ${joinableRooms.length} joinable rooms (jacob can join these)`)
+  // Also add admins (they see all rooms)
+  for (const admin of [admin1, admin2]) {
+    await prisma.roomMember.create({
+      data: {
+        userId: admin.id,
+        roomId: techRoom.id,
+        role: admin.id === techRoom.creatorId ? RoomRole.OWNER : RoomRole.MEMBER,
+      },
+    })
+  }
+  console.log(`   ✅ Auto-joined IT_SUPPORT users to #engineering`)
+
+  // BILLING room (#billing-internal)
+  const billingUsers = [user2] // May
+  for (const user of billingUsers) {
+    await prisma.roomMember.create({
+      data: {
+        userId: user.id,
+        roomId: musicRoom.id,
+        role: user.id === musicRoom.creatorId ? RoomRole.OWNER : RoomRole.MEMBER,
+      },
+    })
+  }
+  // Also add admins
+  for (const admin of [admin1, admin2]) {
+    await prisma.roomMember.create({
+      data: {
+        userId: admin.id,
+        roomId: musicRoom.id,
+        role: admin.id === musicRoom.creatorId ? RoomRole.OWNER : RoomRole.MEMBER,
+      },
+    })
+  }
+  console.log(`   ✅ Auto-joined BILLING users to #billing-internal`)
+
+  // DESIGN room (#ux-research)
+  const designUsers = [user3] // Ethan
+  for (const user of designUsers) {
+    await prisma.roomMember.create({
+      data: {
+        userId: user.id,
+        roomId: designRoom.id,
+        role: user.id === designRoom.creatorId ? RoomRole.OWNER : RoomRole.MEMBER,
+      },
+    })
+  }
+  // Also add admins
+  for (const admin of [admin1, admin2]) {
+    await prisma.roomMember.create({
+      data: {
+        userId: admin.id,
+        roomId: designRoom.id,
+        role: admin.id === designRoom.creatorId ? RoomRole.OWNER : RoomRole.MEMBER,
+      },
+    })
+  }
+  console.log(`   ✅ Auto-joined DESIGN users to #ux-research`)
 
   // Private room: admin1 (owner), admin2, user1 (members)
   await prisma.roomMember.create({
@@ -624,7 +686,7 @@ async function main() {
   }
   
   // Verify each room has members
-  const allRooms = [generalRoom, techRoom, randomRoom, privateRoom, dmRoom, ...joinableRooms, ...ticketRooms]
+  const allRooms = [generalRoom, techRoom, randomRoom, privateRoom, dmRoom, gamingRoom, musicRoom, designRoom, ...ticketRooms]
   for (const room of allRooms) {
     const roomMembers = await prisma.roomMember.count({
       where: { roomId: room.id },

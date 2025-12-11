@@ -19,15 +19,17 @@ export default async function Home({
     redirect('/sign-in?callbackUrl=/')
   }
 
-  // Verify user exists in DB
+  // Verify user exists in DB and get their department
   const dbUser = await prisma.user.findUnique({
     where: { email: session.user.email || '' },
-    select: { id: true },
+    select: { id: true, role: true, department: true },
   })
 
   if (!dbUser) {
     redirect('/sign-in?callbackUrl=/')
   }
+
+  const isAdmin = dbUser.role === 'ADMIN'
 
   const params = await searchParams
   const q = params.q || ''
@@ -38,6 +40,11 @@ export default async function Home({
 
   // Fetch "My Rooms" - rooms user is a member of, EXCLUDING DMs and TICKETs
   // Home page only shows PUBLIC and PRIVATE team/community rooms
+  // For non-admins: show rooms where:
+  //   a) room.department === user.department, OR
+  //   b) room.department === null (PUBLIC_GLOBAL), OR
+  //   c) user is explicitly a member
+  // For admins: show all rooms
   const myMemberships = await prisma.roomMember.findMany({
     where: { 
       userId: dbUser.id,
@@ -97,15 +104,88 @@ export default async function Home({
       },
   })
 
-  const myRooms = myMemberships.map((m) => ({
+  let myRooms = myMemberships.map((m) => ({
     ...m.room,
     role: m.role,
     lastMessage: m.room.messages[0] || null,
   }))
 
-  // Fetch "Discover" - public rooms with filters
+  // For non-admins: also include department rooms and PUBLIC_GLOBAL rooms they're not members of
+  if (!isAdmin && dbUser.department) {
+    const memberRoomIds = new Set(myRooms.map((r) => r.id))
+    
+    const additionalRooms = await prisma.room.findMany({
+      where: {
+        type: { in: [RoomType.PUBLIC, RoomType.PRIVATE] },
+        OR: [
+          { department: dbUser.department }, // User's department
+          { department: null }, // PUBLIC_GLOBAL
+        ],
+        // Exclude rooms user is already a member of
+        id: {
+          notIn: Array.from(memberRoomIds),
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        title: true,
+        description: true,
+        tags: true,
+        type: true,
+        isPrivate: true,
+        createdAt: true,
+        department: true,
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
+        _count: {
+          select: {
+            members: true,
+            messages: true,
+          },
+        },
+        messages: {
+          take: 1,
+          orderBy: {
+            createdAt: 'desc',
+          },
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    // Add these rooms with null role (not a member yet, but visible due to department match)
+    myRooms = [
+      ...myRooms,
+      ...additionalRooms.map((r) => ({
+        ...r,
+        role: null,
+        lastMessage: r.messages[0] || null,
+      })),
+    ]
+  }
+
+  // Fetch "Discover" - only PUBLIC_GLOBAL rooms (department === null)
+  // Department-specific rooms are NOT discoverable
   const where: any = {
     type: RoomType.PUBLIC,
+    department: null, // Only PUBLIC_GLOBAL rooms
   }
 
   if (q) {
