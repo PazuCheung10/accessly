@@ -196,16 +196,15 @@ export default async function Home({
     },
   })
 
-    // Add these rooms with null role (not a member yet, but visible due to department match)
-    myRooms = [
-      ...myRooms,
-      ...additionalRooms.map((r) => ({
-        ...r,
-        role: null,
-        lastMessage: r.messages[0] || null,
-      })),
-    ]
-  }
+  // Add these rooms with null role (not a member yet, but visible due to department match or admin status)
+  myRooms = [
+    ...myRooms,
+    ...additionalRooms.map((r) => ({
+      ...r,
+      role: null,
+      lastMessage: r.messages[0] || null,
+    })),
+  ]
 
   // Fetch "Discover" - only PUBLIC_GLOBAL rooms (department === null)
   // Department-specific rooms are NOT discoverable
