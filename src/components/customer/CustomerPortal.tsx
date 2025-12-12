@@ -133,12 +133,15 @@ export function CustomerPortal() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">My Support Tickets</h1>
-        <p className="text-slate-400">View and manage your support requests</p>
-      </div>
+    <div className="min-h-screen bg-slate-950 text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">My Support Tickets</h1>
+            <p className="text-slate-400 mt-1">View and manage your support requests</p>
+          </div>
+        </div>
 
       {/* Submit New Ticket Button */}
       <div className="mb-6">
@@ -230,6 +233,7 @@ export function CustomerPortal() {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }
