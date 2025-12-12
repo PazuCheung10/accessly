@@ -140,7 +140,10 @@ export function Navbar() {
           </Link>
 
           <div className="flex items-center gap-6 flex-1 max-w-2xl mx-6">
-            <SearchBar className="flex-1" />
+            {/* Search bar - only shown for internal employees (not external customers) */}
+            {isInternalUser === true && (
+              <SearchBar className="flex-1" />
+            )}
           </div>
 
           <div className="flex items-center gap-4">
