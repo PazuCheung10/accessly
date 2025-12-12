@@ -13,6 +13,7 @@ export function Navbar() {
   const router = useRouter()
   const [loadingTimeout, setLoadingTimeout] = useState(false)
   const [isInternalUser, setIsInternalUser] = useState<boolean | null>(null)
+  const [userDepartment, setUserDepartment] = useState<string | null>(null)
 
   // Add timeout to prevent infinite loading
   useEffect(() => {
@@ -26,19 +27,22 @@ export function Navbar() {
     }
   }, [status])
 
-  // Check if user is internal (to hide Support link)
+  // Check if user is internal and get department (to hide Support link and show badge)
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.email) {
       fetch('/api/user/check-internal')
         .then(res => res.json())
         .then(data => {
           setIsInternalUser(data.isInternal || false)
+          setUserDepartment(data.department || null)
         })
         .catch(() => {
           setIsInternalUser(false)
+          setUserDepartment(null)
         })
     } else {
       setIsInternalUser(false)
+      setUserDepartment(null)
     }
   }, [status, session?.user?.email])
 
@@ -86,10 +90,43 @@ export function Navbar() {
     )
   }
 
-  const roleBadgeColor =
-    session.user.role === 'ADMIN'
-      ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
-      : 'bg-slate-700/50 text-slate-300 border-slate-600/50'
+  // Badge colors and labels
+  const getBadgeInfo = () => {
+    if (session.user.role === 'ADMIN') {
+      return {
+        label: 'ADMIN',
+        color: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+      }
+    }
+    
+    // For non-admin internal employees, show department
+    if (isInternalUser === true && userDepartment) {
+      const departmentLabels: Record<string, string> = {
+        ENGINEERING: 'Engineering',
+        BILLING: 'Billing',
+        PRODUCT: 'Product',
+        GENERAL: 'General',
+      }
+      const departmentColors: Record<string, string> = {
+        ENGINEERING: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+        BILLING: 'bg-green-500/20 text-green-300 border-green-500/30',
+        PRODUCT: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+        GENERAL: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+      }
+      return {
+        label: departmentLabels[userDepartment] || userDepartment,
+        color: departmentColors[userDepartment] || 'bg-slate-700/50 text-slate-300 border-slate-600/50',
+      }
+    }
+    
+    // External customers show USER badge
+    return {
+      label: 'USER',
+      color: 'bg-slate-700/50 text-slate-300 border-slate-600/50',
+    }
+  }
+
+  const badgeInfo = getBadgeInfo()
 
   return (
     <nav className="bg-slate-900 border-b border-slate-800" role="navigation">
@@ -153,11 +190,11 @@ export function Navbar() {
                 <span className="text-xs text-slate-400">{session.user.email}</span>
               </div>
 
-              {/* Role Badge */}
+              {/* Role/Department Badge */}
               <span
-                className={`px-2 py-1 text-xs font-semibold rounded border ${roleBadgeColor}`}
+                className={`px-2 py-1 text-xs font-semibold rounded border ${badgeInfo.color}`}
               >
-                {session.user.role}
+                {badgeInfo.label}
               </span>
             </div>
 

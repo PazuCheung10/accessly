@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/user/check-internal
- * Check if the logged-in user is an internal employee
+ * Check if the logged-in user is an internal employee and return user info including department
  */
 export async function GET(request: Request) {
   try {
@@ -20,10 +20,10 @@ export async function GET(request: Request) {
       })
     }
 
-    // Get user from database
+    // Get user from database with department
     const dbUser = await prisma.user.findUnique({
       where: { email: session.user.email || '' },
-      select: { id: true },
+      select: { id: true, role: true, department: true },
     })
 
     if (!dbUser) {
@@ -40,6 +40,8 @@ export async function GET(request: Request) {
     return Response.json({
       ok: true,
       isInternal: userIsInternal,
+      role: dbUser.role,
+      department: dbUser.department,
     })
   } catch (error: any) {
     console.error('Error checking user type:', error)
