@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation'
 import { HomePageClient } from '@/components/rooms/HomePageClient'
+import { CustomerPortal } from '@/components/customer/CustomerPortal'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { RoomType } from '@prisma/client'
+import { isExternalCustomer } from '@/lib/user-utils'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -212,6 +214,14 @@ export default async function Home({
       myRooms.flatMap((r) => r.tags || []).filter((t) => t.length > 0)
     )
   ).sort()
+
+  // Check if user is external customer
+  const userIsExternal = await isExternalCustomer(dbUser.id)
+
+  // If external customer, show Customer Portal instead of Rooms UI
+  if (userIsExternal) {
+    return <CustomerPortal />
+  }
 
   // Get user role from session
   const userRole = session.user.role === 'ADMIN' ? 'ADMIN' : 'USER'

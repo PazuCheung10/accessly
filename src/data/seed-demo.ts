@@ -272,6 +272,21 @@ async function main() {
       department: Department.GENERAL, // Member
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=chris',
     },
+    // External customers (no department, no internal room access)
+    {
+      email: 'customer@example.com',
+      name: 'John Customer',
+      role: Role.USER,
+      department: null, // External customer - no department
+      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=customer',
+    },
+    {
+      email: 'user@example.com',
+      name: 'Jane User',
+      role: Role.USER,
+      department: null, // External customer - no department
+      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user',
+    },
   ]
 
   // Validate: All emails must be unique
@@ -293,8 +308,9 @@ async function main() {
     console.log(`   ✅ Created ${userData.role} user: ${userData.email}${userData.department ? ` (${userData.department})` : ''}`)
   }
 
-  const [admin1, admin2, user1, user2, user3, user4, user5, user6, user7, user8, user9, user10, user11, user12] = createdUsers
+  const [admin1, admin2, user1, user2, user3, user4, user5, user6, user7, user8, user9, user10, user11, user12, customer1, customer2] = createdUsers
   // Department heads: user1 (ENGINEERING), user4 (BILLING), user7 (PRODUCT), user10 (GENERAL)
+  // External customers: customer1, customer2 (no department, no internal room access)
   console.log(`✅ All ${createdUsers.length} users created`)
   console.log('   Password for all users: demo123\n')
 
@@ -495,12 +511,13 @@ async function main() {
   // ============================================
   console.log('👥 STEP 3: Adding members to rooms...')
 
-  // PUBLIC_GLOBAL rooms (department === null): all users are members
+  // PUBLIC_GLOBAL rooms (department === null): all INTERNAL users are members
+  // External customers are NOT added to internal rooms
   const publicGlobalRooms = [generalRoom, randomRoom, gamingRoom]
-  const allUsers = [admin1, admin2, user1, user2, user3, user4, user5, user6, user7, user8, user9, user10, user11, user12]
+  const internalUsers = [admin1, admin2, user1, user2, user3, user4, user5, user6, user7, user8, user9, user10, user11, user12]
   
   for (const room of publicGlobalRooms) {
-    for (const user of allUsers) {
+    for (const user of internalUsers) {
       await prisma.roomMember.create({
         data: {
           userId: user.id,
@@ -510,7 +527,7 @@ async function main() {
       })
     }
   }
-  console.log(`   ✅ Added all ${allUsers.length} users to ${publicGlobalRooms.length} PUBLIC_GLOBAL rooms`)
+  console.log(`   ✅ Added all ${internalUsers.length} internal users to ${publicGlobalRooms.length} PUBLIC_GLOBAL rooms`)
 
   // Department-specific PUBLIC rooms: auto-join users to their department room
   // ENGINEERING room (#engineering): user1 (head), user2, user3 (members)
@@ -631,7 +648,53 @@ async function main() {
       data: { userId: ticketAdmins[i].id, roomId: ticketRooms[i].id, role: RoomRole.OWNER },
     })
   }
-  console.log(`   ✅ ${ticketRooms.length} ticket room members added\n`)
+  console.log(`   ✅ ${ticketRooms.length} ticket room members added`)
+
+  // Create tickets for external customers (so they have something to see)
+  const customerTicket1 = await prisma.room.create({
+    data: {
+      name: 'ticket-customer-account',
+      title: '[TICKET][Account] Cannot access my account',
+      description: 'I cannot log into my account after password reset',
+      type: RoomType.TICKET,
+      isPrivate: true,
+      status: TicketStatus.OPEN,
+      ticketDepartment: TicketDepartment.IT_SUPPORT,
+      creatorId: customer1.id,
+      tags: ['ticket', 'account', 'access'],
+    } as any,
+  })
+
+  const customerTicket2 = await prisma.room.create({
+    data: {
+      name: 'ticket-customer-payment',
+      title: '[TICKET][Billing] Payment method not working',
+      description: 'My credit card is being declined when trying to update payment',
+      type: RoomType.TICKET,
+      isPrivate: true,
+      status: TicketStatus.WAITING,
+      ticketDepartment: TicketDepartment.BILLING,
+      creatorId: customer2.id,
+      tags: ['ticket', 'payment', 'billing'],
+    } as any,
+  })
+
+  // Add external customers to their tickets
+  await prisma.roomMember.create({
+    data: { userId: customer1.id, roomId: customerTicket1.id, role: RoomRole.MEMBER },
+  })
+  await prisma.roomMember.create({
+    data: { userId: admin1.id, roomId: customerTicket1.id, role: RoomRole.OWNER },
+  })
+
+  await prisma.roomMember.create({
+    data: { userId: customer2.id, roomId: customerTicket2.id, role: RoomRole.MEMBER },
+  })
+  await prisma.roomMember.create({
+    data: { userId: admin2.id, roomId: customerTicket2.id, role: RoomRole.OWNER },
+  })
+
+  console.log(`   ✅ Created 2 tickets for external customers\n`)
 
   // ============================================
   // STEP 4: Create Messages
@@ -640,7 +703,7 @@ async function main() {
   console.log('   (Keeping total messages between 50-120 for optimal performance)\n')
 
   // Announcements room: 15 messages
-  const generalMembers = allUsers.slice(0, 8) // Use first 8 users for variety
+  const generalMembers = internalUsers.slice(0, 8) // Use first 8 internal users for variety
   const generalMessageIds: string[] = []
   for (let i = 0; i < 15; i++) {
     const randomUser = generalMembers[Math.floor(Math.random() * generalMembers.length)]
@@ -674,7 +737,7 @@ async function main() {
   console.log(`   ✅ Generated 12 messages for Engineering & Incidents`)
 
   // Team Lounge room: 10 messages
-  const randomMembers = allUsers.slice(0, 6) // Mix of users
+  const randomMembers = internalUsers.slice(0, 6) // Mix of internal users
   for (let i = 0; i < 10; i++) {
     const randomUser = randomMembers[Math.floor(Math.random() * randomMembers.length)]
     await prisma.message.create({
@@ -752,8 +815,8 @@ async function main() {
   console.log(`   ✅ Messages: ${totalMessagesCount}`)
   console.log(`   ✅ Memberships: ${totalMemberships}`)
   
-  // Verify each user has memberships
-  for (const user of allUsers) {
+  // Verify each internal user has memberships
+  for (const user of internalUsers) {
     const userMemberships = await prisma.roomMember.count({
       where: { userId: user.id },
     })
@@ -762,9 +825,33 @@ async function main() {
     }
     console.log(`   ✅ ${user.email}: ${userMemberships} room memberships`)
   }
+
+  // Verify external customers only have ticket memberships
+  const externalCustomers = [customer1, customer2]
+  for (const customer of externalCustomers) {
+    const ticketMemberships = await prisma.roomMember.count({
+      where: {
+        userId: customer.id,
+        room: { type: RoomType.TICKET },
+      },
+    })
+    const internalMemberships = await prisma.roomMember.count({
+      where: {
+        userId: customer.id,
+        room: { type: { in: [RoomType.PUBLIC, RoomType.PRIVATE] } },
+      },
+    })
+    if (ticketMemberships === 0) {
+      throw new Error(`❌ External customer ${customer.email} has no ticket memberships`)
+    }
+    if (internalMemberships > 0) {
+      throw new Error(`❌ External customer ${customer.email} has internal room memberships (should not)`)
+    }
+    console.log(`   ✅ ${customer.email}: ${ticketMemberships} ticket memberships, 0 internal memberships`)
+  }
   
   // Verify each room has members
-  const allRooms = [generalRoom, techRoom, randomRoom, privateRoom, gamingRoom, billingRoom, productRoom, generalRoom2, ...ticketRooms]
+  const allRooms = [generalRoom, techRoom, randomRoom, privateRoom, gamingRoom, billingRoom, productRoom, generalRoom2, ...ticketRooms, customerTicket1, customerTicket2]
   for (const room of allRooms) {
     const roomMembers = await prisma.roomMember.count({
       where: { roomId: room.id },
@@ -848,6 +935,7 @@ async function main() {
   console.log('   BILLING: may@solace.com (head), lisa@solace.com, tom@solace.com')
   console.log('   PRODUCT: ethan@solace.com (head), sarah@solace.com, david@solace.com')
   console.log('   GENERAL: mike@solace.com (head), emma@solace.com, chris@solace.com')
+  console.log('   External Customers: customer@example.com, user@example.com')
   console.log('   Password for all: demo123')
   console.log('\n🎉 You can now sign in with any account and see the chat history!')
   console.log('\n💡 Next steps:')

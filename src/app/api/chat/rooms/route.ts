@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { RoomInput } from '@/lib/validation'
+import { isExternalCustomer } from '@/lib/user-utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -259,7 +260,8 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/chat/rooms
- * Create a new room (any authenticated user)
+ * Create a new room (internal users only)
+ * External customers cannot create rooms
  * If type=PRIVATE, creator becomes OWNER
  */
 export async function POST(request: Request) {
@@ -271,6 +273,30 @@ export async function POST(request: Request) {
         code: 'UNAUTHORIZED',
         message: 'Unauthorized',
       }, { status: 401 })
+    }
+
+    // Get user from database
+    const dbUser = await prisma.user.findUnique({
+      where: { email: session.user.email || '' },
+      select: { id: true },
+    })
+
+    if (!dbUser) {
+      return Response.json({
+        ok: false,
+        code: 'NOT_FOUND',
+        message: 'User not found',
+      }, { status: 404 })
+    }
+
+    // Block external customers from creating rooms
+    const userIsExternal = await isExternalCustomer(dbUser.id)
+    if (userIsExternal) {
+      return Response.json({
+        ok: false,
+        code: 'FORBIDDEN',
+        message: 'External customers cannot create rooms',
+      }, { status: 403 })
     }
 
     const body = await request.json()

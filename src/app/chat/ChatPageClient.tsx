@@ -61,6 +61,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
   const [activeTab, setActiveTab] = useState<'rooms' | 'tickets'>('rooms')
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [isLoadingTickets, setIsLoadingTickets] = useState(false)
+  const [isExternalCustomer, setIsExternalCustomer] = useState<boolean | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -68,30 +69,85 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
     }
   }, [status, router])
 
-  // Fetch tickets when tickets tab is active
+  // Check if user is external customer
   useEffect(() => {
-    if (status !== 'authenticated' || activeTab !== 'tickets' || session?.user?.role !== 'ADMIN') {
+    if (status !== 'authenticated' || !session?.user?.id) {
       return
     }
 
-    const fetchTickets = async () => {
+    const checkUserType = async () => {
       try {
-        setIsLoadingTickets(true)
-        const response = await fetch('/api/tickets')
+        // We'll use a simple heuristic: check if user has any PUBLIC/PRIVATE room memberships
+        // If not, they're likely an external customer
+        const response = await fetch('/api/chat/rooms')
         const data = await response.json()
         
-        if (data.ok && data.data?.tickets) {
-          setTickets(data.data.tickets)
+        if (data.ok && data.data?.rooms) {
+          const rooms = data.data.rooms
+          const hasInternalRooms = rooms.some((r: Room) => r.type === 'PUBLIC' || r.type === 'PRIVATE')
+          setIsExternalCustomer(!hasInternalRooms && session?.user?.role !== 'ADMIN')
+        } else {
+          // If API fails, assume internal user for safety
+          setIsExternalCustomer(false)
         }
       } catch (err) {
-        console.error('Error fetching tickets:', err)
-      } finally {
-        setIsLoadingTickets(false)
+        console.error('Error checking user type:', err)
+        setIsExternalCustomer(false)
       }
     }
 
-    fetchTickets()
-  }, [activeTab, status, session?.user?.role])
+    checkUserType()
+  }, [status, session?.user?.id, session?.user?.role])
+
+  // Fetch tickets when tickets tab is active (for admins) or for external customers
+  useEffect(() => {
+    if (status !== 'authenticated') {
+      return
+    }
+
+    // For admins: fetch when tickets tab is active
+    if (session?.user?.role === 'ADMIN' && activeTab === 'tickets') {
+      const fetchTickets = async () => {
+        try {
+          setIsLoadingTickets(true)
+          const response = await fetch('/api/tickets')
+          const data = await response.json()
+          
+          if (data.ok && data.data?.tickets) {
+            setTickets(data.data.tickets)
+          }
+        } catch (err) {
+          console.error('Error fetching tickets:', err)
+        } finally {
+          setIsLoadingTickets(false)
+        }
+      }
+
+      fetchTickets()
+      return
+    }
+
+    // For external customers: fetch their tickets on mount
+    if (isExternalCustomer === true) {
+      const fetchMyTickets = async () => {
+        try {
+          setIsLoadingTickets(true)
+          const response = await fetch('/api/tickets/my-tickets')
+          const data = await response.json()
+          
+          if (data.ok && data.data?.tickets) {
+            setTickets(data.data.tickets)
+          }
+        } catch (err) {
+          console.error('Error fetching my tickets:', err)
+        } finally {
+          setIsLoadingTickets(false)
+        }
+      }
+
+      fetchMyTickets()
+    }
+  }, [activeTab, status, session?.user?.role, isExternalCustomer])
 
   // Fetch rooms only when authenticated - depend on status, not session object
   useEffect(() => {
@@ -261,7 +317,8 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
 
   return (
     <div className="h-full bg-slate-950 text-white flex overflow-hidden">
-      {/* Room Sidebar */}
+      {/* Room Sidebar - Hidden for external customers */}
+      {isExternalCustomer !== true && (
       <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-full flex-shrink-0">
         <div className="p-4 border-b border-slate-800 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
@@ -498,6 +555,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
           )}
         </div>
       </div>
+      )}
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
