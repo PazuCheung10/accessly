@@ -95,9 +95,22 @@ export default function SupportPage() {
             ← Back to Home
           </Link>
           <h1 className="text-3xl font-bold mb-2">Contact Support</h1>
-          <p className="text-slate-400">
+          <p className="text-slate-400 mb-3">
             Submit a support ticket and our team will get back to you as soon as possible.
           </p>
+          {!session?.user && (
+            <p className="text-sm text-slate-500">
+              Already have an account?{' '}
+              <Link href="/sign-in" className="text-cyan-400 hover:text-cyan-300 font-medium">
+                Sign in
+              </Link>
+              {' '}to track your tickets, or{' '}
+              <Link href="/sign-up" className="text-cyan-400 hover:text-cyan-300 font-medium">
+                create an account
+              </Link>
+              {' '}to manage your support requests.
+            </p>
+          )}
         </div>
 
         {isInternalUser === true && (
