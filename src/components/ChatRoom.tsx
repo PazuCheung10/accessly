@@ -10,6 +10,7 @@ import { MessageItem } from './MessageItem'
 import { ThreadView } from './ThreadView'
 import { PresenceBar } from './PresenceBar'
 import { RoomHeader } from './rooms/RoomHeader'
+import { TicketAIAssistant } from './ai/TicketAIAssistant'
 
 // Store unsent messages per room (outside component to persist across re-renders)
 const unsentMessages: Record<string, string> = {}
@@ -917,33 +918,35 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 min-h-0">
-      {/* Header with room details, badges, and actions */}
-      <RoomHeader roomId={roomId} roomName={roomName} />
-      <div className="px-6 pb-2 border-b border-slate-800 flex-shrink-0">
-        <PresenceBar roomId={roomId} />
-      </div>
-
-      {/* Send error display */}
-      {sendError && (
-        <div className="px-6 py-2 text-sm text-red-400 bg-red-500/10 border-b border-red-500/30">
-          {sendError}
+    <div className="flex h-full bg-slate-950 min-h-0">
+      {/* Main Chat Area */}
+      <div className="flex flex-col flex-1 min-w-0 min-h-0">
+        {/* Header with room details, badges, and actions */}
+        <RoomHeader roomId={roomId} roomName={roomName} />
+        <div className="px-6 pb-2 border-b border-slate-800 flex-shrink-0">
+          <PresenceBar roomId={roomId} />
         </div>
-      )}
 
-      {/* Messages - only this area updates when switching rooms */}
-      <div
-        ref={messagesContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0"
-        style={{ 
-          scrollBehavior: 'auto',
-          visibility: isRestoringScroll ? 'hidden' : 'visible'
-        }}
-        role="log"
-        aria-live="polite"
-        aria-label="Chat messages"
-      >
+        {/* Send error display */}
+        {sendError && (
+          <div className="px-6 py-2 text-sm text-red-400 bg-red-500/10 border-b border-red-500/30">
+            {sendError}
+          </div>
+        )}
+
+        {/* Messages - only this area updates when switching rooms */}
+        <div
+          ref={messagesContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0"
+          style={{ 
+            scrollBehavior: 'auto',
+            visibility: isRestoringScroll ? 'hidden' : 'visible'
+          }}
+          role="log"
+          aria-live="polite"
+          aria-label="Chat messages"
+        >
         {(isLoadingMessages && (!room || isInitialFetchingRef.current)) ? (
           // Show loader on first visit (no cache) OR during initial fetch (even if room entry exists)
           // This handles the case where upsertMessages creates room entry before fetch completes
@@ -1014,67 +1017,71 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
             <div ref={messagesEndRef} />
           </>
         )}
-      </div>
+        </div>
 
-      {/* Input - stays stable when switching rooms */}
-      <div className="px-6 py-4 border-t border-slate-800 flex-shrink-0">
-        {/* Only show error toast here if sendError is not set (sendError is shown above) */}
-        {!sendError && error && showToast && (
-          <div className="mb-2 text-red-400 text-sm">{error}</div>
-        )}
-        <div className="flex gap-2">
-          {replyingTo && (() => {
-            const replyingToMessage = messages.find((m) => m.id === replyingTo)
-            return (
-              <div className="mb-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 flex items-center justify-between">
-                <span>
-                  Replying to <span className="font-medium">{replyingToMessage?.user?.name || 'message'}</span>
-                  {replyingToMessage?.content && (
-                    <span className="text-slate-500 ml-2">
-                      {replyingToMessage.content.slice(0, 50)}
-                      {replyingToMessage.content.length > 50 ? '...' : ''}
-                    </span>
-                  )}
-                </span>
-                <button
-                  onClick={() => {
-                    setReplyingTo(null)
-                    const params = new URLSearchParams(searchParams.toString())
-                    params.delete('thread')
-                    router.push(`?${params.toString()}`, { scroll: false })
-                  }}
-                  className="text-slate-400 hover:text-slate-200"
-                >
-                  ✕
-                </button>
-              </div>
-            )
-          })()}
-          <textarea
-            value={input}
-            onChange={handleInputChange}
-            onFocus={handleInputFocus}
-            onKeyPress={handleKeyPress}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleKeyPress(e as any)
-              }
-            }}
-            placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
-            disabled={isLoading}
-            className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
-            rows={2}
-          />
-          <button
-            onClick={sendMessage}
-            disabled={isLoading || !input.trim()}
-            className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg transition-colors flex-shrink-0"
-          >
-            Send
-          </button>
+        {/* Input - stays stable when switching rooms */}
+        <div className="px-6 py-4 border-t border-slate-800 flex-shrink-0 w-full">
+          {/* Only show error toast here if sendError is not set (sendError is shown above) */}
+          {!sendError && error && showToast && (
+            <div className="mb-2 text-red-400 text-sm">{error}</div>
+          )}
+          <div className="flex gap-2 w-full min-w-0">
+            {replyingTo && (() => {
+              const replyingToMessage = messages.find((m) => m.id === replyingTo)
+              return (
+                <div className="mb-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 flex items-center justify-between">
+                  <span>
+                    Replying to <span className="font-medium">{replyingToMessage?.user?.name || 'message'}</span>
+                    {replyingToMessage?.content && (
+                      <span className="text-slate-500 ml-2">
+                        {replyingToMessage.content.slice(0, 50)}
+                        {replyingToMessage.content.length > 50 ? '...' : ''}
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setReplyingTo(null)
+                      const params = new URLSearchParams(searchParams.toString())
+                      params.delete('thread')
+                      router.push(`?${params.toString()}`, { scroll: false })
+                    }}
+                    className="text-slate-400 hover:text-slate-200"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )
+            })()}
+            <textarea
+              value={input}
+              onChange={handleInputChange}
+              onFocus={handleInputFocus}
+              onKeyPress={handleKeyPress}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleKeyPress(e as any)
+                }
+              }}
+              placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
+              disabled={isLoading}
+              className="flex-1 min-w-0 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
+              rows={2}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={isLoading || !input.trim()}
+              className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg transition-colors flex-shrink-0"
+            >
+              Send
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* AI Assistant Panel - Only for TICKET rooms, admin users */}
+      <TicketAIAssistant roomId={roomId} />
     </div>
   )
 }
