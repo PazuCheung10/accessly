@@ -30,6 +30,10 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
+
+  // AI Provider (optional, defaults to 'fake')
+  TICKET_AI_PROVIDER: z.enum(['fake', 'openai']).optional(),
+  OPENAI_API_KEY: z.string().optional(),
 })
 
 // Parse and validate environment variables
@@ -47,6 +51,8 @@ function getEnv() {
     HOST: process.env.HOST,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NODE_ENV: process.env.NODE_ENV,
+    TICKET_AI_PROVIDER: process.env.TICKET_AI_PROVIDER,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   })
 
   if (!parsed.success) {

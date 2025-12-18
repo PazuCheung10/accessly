@@ -21,6 +21,7 @@ export function TicketAIAssistant({ roomId }: TicketAIAssistantProps) {
   const { data: session } = useSession()
   const [isExpanded, setIsExpanded] = useState(true)
   const [insights, setInsights] = useState<AIInsights | null>(null)
+  const [provider, setProvider] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [roomType, setRoomType] = useState<string | null>(null)
@@ -34,6 +35,7 @@ export function TicketAIAssistant({ roomId }: TicketAIAssistantProps) {
       // Immediately clear state when room changes
       setRoomType(null)
       setInsights(null)
+      setProvider(null)
       setError(null)
       setIsLoading(false)
     }
@@ -45,6 +47,7 @@ export function TicketAIAssistant({ roomId }: TicketAIAssistantProps) {
       // Reset state at start of check
       setRoomType(null)
       setInsights(null)
+      setProvider(null)
       setError(null)
       setIsLoading(false)
       
@@ -113,6 +116,7 @@ export function TicketAIAssistant({ roomId }: TicketAIAssistantProps) {
       }
 
       setInsights(data.data)
+      setProvider(data.provider || null)
     } catch (err: any) {
       // Only set error if we're still in a ticket room and on the same room
       if (currentRoomIdRef.current === roomId && roomType === 'TICKET' && isAdmin === true) {
@@ -131,12 +135,13 @@ export function TicketAIAssistant({ roomId }: TicketAIAssistantProps) {
   useEffect(() => {
     if (roomType === 'TICKET' && isAdmin === true) {
       fetchInsights()
-    } else {
-      // Clear insights when switching away from ticket room
-      setInsights(null)
-      setError(null)
-      setIsLoading(false)
-    }
+      } else {
+        // Clear insights when switching away from ticket room
+        setInsights(null)
+        setProvider(null)
+        setError(null)
+        setIsLoading(false)
+      }
   }, [roomId, roomType, isAdmin, fetchInsights])
 
   // Don't render if not a TICKET room or user is not admin
@@ -160,7 +165,14 @@ export function TicketAIAssistant({ roomId }: TicketAIAssistantProps) {
       {/* Collapse/Expand Toggle */}
       <div className="p-2 border-b border-slate-800 flex items-center justify-between">
         {isExpanded && (
-          <h3 className="text-sm font-semibold text-slate-200">AI Assistant</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-200">AI Assistant</h3>
+            {provider === 'fake' && (
+              <span className="px-1.5 py-0.5 text-xs font-medium bg-slate-700 text-slate-300 rounded border border-slate-600">
+                Mock
+              </span>
+            )}
+          </div>
         )}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
