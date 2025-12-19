@@ -58,7 +58,7 @@ export async function handlePostMessageCore(req: Request): Promise<MessageCoreRe
 
   // Message rate limiting
   try {
-    checkMessageRate(userId)
+    await checkMessageRate(userId)
   } catch (err: any) {
     // Duck-type check for RateLimitedError
     if (err && typeof err === 'object' && (err as any).name === 'RateLimitedError') {

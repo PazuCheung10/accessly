@@ -6,6 +6,7 @@ import { TicketAIService } from '@/lib/ai/service'
 import { logger } from '@/lib/logger'
 import { handleApiError } from '@/lib/apiError'
 import { withRequestLogging } from '@/lib/requestLogger'
+import { metricsStore } from '@/lib/metrics'
 
 export const dynamic = 'force-dynamic'
 
@@ -168,6 +169,9 @@ async function POSTHandler(request: Request) {
       })
     }
   } catch (error: any) {
+    // Track AI failure in metrics
+    metricsStore.incrementAIFailure()
+
     const session = await auth().catch(() => null)
     const dbUser = session?.user?.email
       ? await prisma.user.findUnique({ where: { email: session.user.email || '' }, select: { id: true } }).catch(() => null)

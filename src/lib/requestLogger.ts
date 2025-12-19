@@ -7,6 +7,7 @@ import { logger } from './logger'
 import { auth } from './auth'
 import { prisma } from './prisma'
 import { AsyncLocalStorage } from 'async_hooks'
+import { metricsStore } from './metrics'
 
 const SLOW_REQUEST_THRESHOLD_MS = 1000
 
@@ -117,6 +118,11 @@ export function withRequestLogging<T extends any[]>(
         statusCode,
         durationMs: duration,
         userId,
+      }
+
+      // Track 5xx errors in metrics
+      if (statusCode >= 500 && statusCode < 600) {
+        metricsStore.increment5xxError(routeName)
       }
 
       if (duration > SLOW_REQUEST_THRESHOLD_MS) {

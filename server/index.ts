@@ -14,6 +14,7 @@ import { setTelemetryIO, trackRoomMessage } from '../src/lib/telemetry'
 import { env } from '../src/lib/env'
 import { logger } from '../src/lib/logger'
 import * as Sentry from '@sentry/nextjs'
+import { metricsStore } from '../src/lib/metrics'
 
 const dev = env.NODE_ENV !== 'production'
 const hostname = env.HOST
@@ -116,6 +117,9 @@ async function startServer() {
 
     // Socket.io connection handlers
     io.on('connection', (socket) => {
+      // Track socket connection in metrics
+      metricsStore.incrementSocketConnect()
+
       logger.info(
         { routeName: 'socket_connection', socketId: socket.id },
         'Socket connected'
@@ -194,6 +198,9 @@ async function startServer() {
       })
 
       socket.on('disconnect', (reason) => {
+        // Track socket disconnection in metrics
+        metricsStore.incrementSocketDisconnect()
+
         logger.info(
           { routeName: 'socket_disconnect', socketId: socket.id, userId: socket.data.userId, reason },
           'Socket disconnected'

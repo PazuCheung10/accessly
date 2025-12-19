@@ -30,7 +30,7 @@ async function POSTHandler(request: Request) {
     const ip = forwarded ? forwarded.split(',')[0].trim() : request.headers.get('x-real-ip') || 'unknown'
     
     try {
-      checkSupportFormRate(ip)
+      await checkSupportFormRate(ip)
     } catch (error: any) {
       if (error.code === 'RATE_LIMITED') {
         return Response.json({

@@ -5,6 +5,7 @@
 
 import { logger } from './logger'
 import { getRequestId } from './requestLogger'
+import { metricsStore } from './metrics'
 
 interface ErrorContext {
   routeName: string
@@ -72,6 +73,9 @@ export async function handleApiError(
       logger.warn({ routeName: 'sentry' }, 'Failed to report error to Sentry')
     }
   }
+
+  // Track 5xx error in metrics
+  metricsStore.increment5xxError(context.routeName)
 
   // Return consistent error response
   return Response.json(

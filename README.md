@@ -418,7 +418,7 @@ Accessly requires a **long-lived Node.js process** for real-time features:
   - Auto-refresh every 5 seconds
 - **Clickable Rooms**: Navigate directly to chat threads from dashboard
 
-### Operations & Observability (Phase 1 & 2)
+### Operations & Observability (Phase 1, 2 & 3)
 - **Structured Logging**: JSON-formatted logs with context (routeName, userId, requestId, duration)
 - **Request Logging**: Automatic logging of all API requests with:
   - Request ID for correlation
@@ -431,8 +431,19 @@ Accessly requires a **long-lived Node.js process** for real-time features:
   - Client-side error boundary for React errors
 - **Health Check**: `/api/health` endpoint for monitoring (DB and Redis status)
 - **Error Boundaries**: React Error Boundaries catch render errors gracefully
+- **Rate Limiting** (Phase 3):
+  - Redis-backed rate limiting for multi-instance deployments
+  - Automatic fallback to in-memory store if Redis unavailable
+  - Multi-instance safe when Redis is configured
+  - Applied to messages, support forms, and general API requests
+- **Lightweight Metrics** (Phase 3):
+  - 5xx error counters (total and per-route)
+  - AI assistant failure tracking
+  - Socket connection/disconnection counters
+  - Developer metrics endpoint: `/api/dev/metrics`
 - **Access Points**:
   - **Health Check**: `http://localhost:3000/api/health` (anyone)
+  - **Developer Metrics**: `http://localhost:3000/api/dev/metrics` (dev mode or admin)
   - **Request Logs**: Server terminal (structured JSON)
   - **Telemetry Dashboard**: `/admin/telemetry` (admin only)
   - **Sentry Dashboard**: sentry.io (if `SENTRY_DSN` configured)
@@ -490,6 +501,9 @@ Accessly requires a **long-lived Node.js process** for real-time features:
   - Error tracking with Sentry integration (optional)
   - Health check endpoint for monitoring
   - React Error Boundaries for client-side error handling
+  - Redis-backed rate limiting (multi-instance safe)
+  - Lightweight metrics collection (5xx errors, AI failures, socket events)
+  - Developer metrics endpoint for debugging
 
 ## Tech Stack
 
@@ -968,6 +982,7 @@ src/
 
 ### System
 - `GET /api/health` - Health check (DB, Redis status) - unauthenticated
+- `GET /api/dev/metrics` - Developer metrics (5xx errors, AI failures, socket events) - dev mode or admin
 - `GET /api/debug/session` - Debug session info
 - `GET /api/debug/rooms` - Debug room/membership info
 

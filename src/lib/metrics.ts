@@ -1,6 +1,10 @@
 /**
  * Metrics collection service
  * Tracks various system metrics for observability dashboard
+ * 
+ * NOTE: Metrics are approximate and for debugging purposes only, not strict SLAs.
+ * In-memory storage means metrics are lost on restart and not shared across instances.
+ * For production multi-instance deployments, consider Redis-backed counters.
  */
 
 interface QueryMetric {
@@ -29,6 +33,14 @@ class MetricsStore {
   private socketLatencies: SocketLatency[] = []
   private maxSlowQueries = 100
   private maxLatencies = 1000
+
+  // Phase 3: Simple counters for operational metrics
+  // These are approximate counters for debugging, not strict SLAs
+  private error5xxCount = 0 // Total 5xx errors
+  private error5xxByRoute = new Map<string, number>() // 5xx errors per route
+  private aiFailureCount = 0 // AI assistant failures
+  private socketConnectCount = 0 // Socket connections
+  private socketDisconnectCount = 0 // Socket disconnections
 
   addSlowQuery(metric: QueryMetric) {
     this.slowQueries.push(metric)
@@ -124,6 +136,41 @@ class MetricsStore {
       .map(([roomId, data]) => ({ roomId, ...data }))
       .sort((a, b) => b.messageCount - a.messageCount)
       .slice(0, limit)
+  }
+
+  // Phase 3: Increment 5xx error counter
+  increment5xxError(routeName?: string) {
+    this.error5xxCount++
+    if (routeName) {
+      const current = this.error5xxByRoute.get(routeName) || 0
+      this.error5xxByRoute.set(routeName, current + 1)
+    }
+  }
+
+  // Phase 3: Increment AI failure counter
+  incrementAIFailure() {
+    this.aiFailureCount++
+  }
+
+  // Phase 3: Increment socket connection counter
+  incrementSocketConnect() {
+    this.socketConnectCount++
+  }
+
+  // Phase 3: Increment socket disconnection counter
+  incrementSocketDisconnect() {
+    this.socketDisconnectCount++
+  }
+
+  // Phase 3: Get operational metrics snapshot
+  getOperationalMetrics() {
+    return {
+      error5xxTotal: this.error5xxCount,
+      error5xxByRoute: Object.fromEntries(this.error5xxByRoute),
+      aiFailures: this.aiFailureCount,
+      socketConnects: this.socketConnectCount,
+      socketDisconnects: this.socketDisconnectCount,
+    }
   }
 }
 
