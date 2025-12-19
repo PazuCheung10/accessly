@@ -12,6 +12,8 @@ import { prisma } from '../src/lib/prisma'
 import { setIO } from '../src/lib/io'
 import { setTelemetryIO, trackRoomMessage } from '../src/lib/telemetry'
 import { env } from '../src/lib/env'
+import { logger } from '../src/lib/logger'
+import * as Sentry from '@sentry/nextjs'
 
 const dev = env.NODE_ENV !== 'production'
 const hostname = env.HOST
@@ -23,15 +25,34 @@ const nextHandler = nextApp.getRequestHandler()
 
 async function startServer() {
   try {
+    // Initialize Sentry if configured
+    if (process.env.SENTRY_DSN && process.env.NODE_ENV !== 'test') {
+      try {
+        Sentry.init({
+          dsn: process.env.SENTRY_DSN,
+          environment: process.env.NODE_ENV || 'development',
+          tracesSampleRate: 0, // Disable performance tracing for Phase 1
+          enabled: true,
+        })
+        logger.info({ routeName: 'server_startup' }, 'Sentry initialized')
+      } catch (sentryError) {
+        logger.warn({ routeName: 'server_startup' }, 'Failed to initialize Sentry')
+      }
+    }
+
     // Wait for Next.js to prepare
     await nextApp.prepare()
 
     // Test database connectivity
     try {
       await prisma.$connect()
-      console.log('✅ Database connected')
+      logger.info({ routeName: 'server_startup' }, 'Database connected')
     } catch (error) {
-      console.error('❌ Database connection failed:', error)
+      logger.error(
+        { routeName: 'server_startup' },
+        error instanceof Error ? error : new Error(String(error)),
+        { component: 'database' }
+      )
       // Don't exit - let the app start but log the error
     }
 
@@ -45,7 +66,7 @@ async function startServer() {
 
     if (env.REDIS_URL) {
       // Use Redis adapter for horizontal scaling
-      console.log('🔴 Using Redis adapter for Socket.io')
+      logger.info({ routeName: 'server_startup' }, 'Using Redis adapter for Socket.io')
 
       const pubClient = new Redis(env.REDIS_URL)
       const subClient = pubClient.duplicate()
@@ -56,9 +77,13 @@ async function startServer() {
           pubClient.ping(),
           subClient.ping(),
         ])
-        console.log('✅ Redis connected')
+        logger.info({ routeName: 'server_startup' }, 'Redis connected')
       } catch (error) {
-        console.error('❌ Redis connection failed:', error)
+        logger.error(
+          { routeName: 'server_startup' },
+          error instanceof Error ? error : new Error(String(error)),
+          { component: 'redis' }
+        )
         throw error
       }
 
@@ -91,7 +116,10 @@ async function startServer() {
 
     // Socket.io connection handlers
     io.on('connection', (socket) => {
-      console.log('🔌 Socket connected:', socket.id)
+      logger.info(
+        { routeName: 'socket_connection', socketId: socket.id },
+        'Socket connected'
+      )
 
       // Handle room join
       socket.on('room:join', async (data: { roomId: string; userId: string }) => {
@@ -99,18 +127,28 @@ async function startServer() {
         socket.data.userId = userId
         socket.join(roomId)
 
-        // Broadcast user online to others in the room
-        socket.to(roomId).emit('user:online', { userId, socketId: socket.id })
+        try {
+          // Broadcast user online to others in the room
+          socket.to(roomId).emit('user:online', { userId, socketId: socket.id })
 
-        // Send list of current room members to the joining user
-        const socketsInRoom = await io.in(roomId).fetchSockets()
-        const userIds = socketsInRoom
-          .map((s) => s.data.userId)
-          .filter((id): id is string => !!id && id !== userId)
+          // Send list of current room members to the joining user
+          const socketsInRoom = await io.in(roomId).fetchSockets()
+          const userIds = socketsInRoom
+            .map((s) => s.data.userId)
+            .filter((id): id is string => !!id && id !== userId)
 
-        socket.emit('room:members', userIds)
+          socket.emit('room:members', userIds)
 
-        console.log(`👤 User ${userId} joined room ${roomId}`)
+          logger.info(
+            { routeName: 'socket_room_join', socketId: socket.id, userId, roomId },
+            'User joined room'
+          )
+        } catch (error) {
+          logger.error(
+            { routeName: 'socket_room_join', socketId: socket.id, userId, roomId },
+            error instanceof Error ? error : new Error(String(error))
+          )
+        }
       })
 
       // Handle room leave
@@ -118,10 +156,20 @@ async function startServer() {
         const { roomId, userId } = data
         socket.leave(roomId)
 
-        // Broadcast user offline
-        socket.to(roomId).emit('user:offline', { userId })
+        try {
+          // Broadcast user offline
+          socket.to(roomId).emit('user:offline', { userId })
 
-        console.log(`👋 User ${userId} left room ${roomId}`)
+          logger.info(
+            { routeName: 'socket_room_leave', socketId: socket.id, userId, roomId },
+            'User left room'
+          )
+        } catch (error) {
+          logger.error(
+            { routeName: 'socket_room_leave', socketId: socket.id, userId, roomId },
+            error instanceof Error ? error : new Error(String(error))
+          )
+        }
       })
 
       // Handle typing indicators
@@ -145,34 +193,46 @@ async function startServer() {
         socket.emit('pong', Date.now())
       })
 
-      socket.on('disconnect', () => {
-        console.log('🔌 Socket disconnected:', socket.id)
+      socket.on('disconnect', (reason) => {
+        logger.info(
+          { routeName: 'socket_disconnect', socketId: socket.id, userId: socket.data.userId, reason },
+          'Socket disconnected'
+        )
       })
     })
 
     // Start HTTP server
     httpServer.listen(port, hostname, () => {
-      console.log(`🚀 Server ready on http://${hostname}:${port}`)
-      console.log(`📡 Socket.io available at /socket.io`)
+      logger.info(
+        { routeName: 'server_startup' },
+        `Server ready on http://${hostname}:${port}`
+      )
+      logger.info(
+        { routeName: 'server_startup' },
+        'Socket.io available at /socket.io'
+      )
       if (dev) {
-        console.log(`🔧 Running in ${dev ? 'development' : 'production'} mode`)
+        logger.info(
+          { routeName: 'server_startup' },
+          `Running in ${dev ? 'development' : 'production'} mode`
+        )
       }
     })
 
     // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {
-      console.log(`\n🛑 Received ${signal}, shutting down gracefully...`)
+      logger.info({ routeName: 'server_shutdown' }, `Received ${signal}, shutting down gracefully...`)
 
       httpServer.close(() => {
-        console.log('✅ HTTP server closed')
+        logger.info({ routeName: 'server_shutdown' }, 'HTTP server closed')
       })
 
       io.close(() => {
-        console.log('✅ Socket.io server closed')
+        logger.info({ routeName: 'server_shutdown' }, 'Socket.io server closed')
       })
 
       await prisma.$disconnect()
-      console.log('✅ Database connection closed')
+      logger.info({ routeName: 'server_shutdown' }, 'Database connection closed')
 
       process.exit(0)
     }
@@ -180,7 +240,24 @@ async function startServer() {
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
     process.on('SIGINT', () => gracefulShutdown('SIGINT'))
   } catch (error) {
-    console.error('❌ Failed to start server:', error)
+    logger.error(
+      { routeName: 'server_startup' },
+      error instanceof Error ? error : new Error(String(error)),
+      { fatal: true }
+    )
+    
+    // Report to Sentry if configured
+    if (process.env.SENTRY_DSN && process.env.NODE_ENV !== 'test') {
+      try {
+        if (error instanceof Error) {
+          Sentry.captureException(error, { level: 'fatal' })
+        }
+        await Sentry.flush(2000)
+      } catch (sentryError) {
+        // Ignore Sentry errors during fatal shutdown
+      }
+    }
+    
     process.exit(1)
   }
 }

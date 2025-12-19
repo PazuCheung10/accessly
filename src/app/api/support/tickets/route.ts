@@ -3,6 +3,8 @@ import { checkSupportFormRate } from '@/lib/rateLimit'
 import { isInternalUser } from '@/lib/user-utils'
 import { z } from 'zod'
 import { Role, TicketDepartment } from '@prisma/client'
+import { logger } from '@/lib/logger'
+import { handleApiError } from '@/lib/apiError'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -187,12 +189,13 @@ export async function POST(request: Request) {
       },
     })
   } catch (error: any) {
-    console.error('Error creating ticket:', error)
-    return Response.json({
-      ok: false,
-      code: 'INTERNAL_ERROR',
-      message: 'Internal server error',
-    }, { status: 500 })
+    return await handleApiError(
+      error,
+      {
+        routeName: 'POST /api/support/tickets',
+      },
+      request
+    )
   }
 }
 

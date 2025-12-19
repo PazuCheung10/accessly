@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { Role } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
+import { handleApiError } from '@/lib/apiError'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -69,12 +71,13 @@ export async function POST(request: Request) {
       },
     })
   } catch (error: any) {
-    console.error('Error creating user:', error)
-    return Response.json({
-      ok: false,
-      code: 'INTERNAL_ERROR',
-      message: 'Failed to create account',
-    }, { status: 500 })
+    return await handleApiError(
+      error,
+      {
+        routeName: 'POST /api/auth/signup',
+      },
+      request
+    )
   }
 }
 

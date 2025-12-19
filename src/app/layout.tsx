@@ -4,6 +4,7 @@ import { AuthProvider } from '@/components/AuthProvider'
 import { Navbar } from '@/components/Navbar'
 import { ToasterWrapper } from '@/components/ToasterWrapper'
 import '@/styles/globals.css'
+import '../../sentry.client.config'
 
 const inter = Inter({ subsets: ['latin'] })
 

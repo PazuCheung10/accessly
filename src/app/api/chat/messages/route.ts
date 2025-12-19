@@ -4,6 +4,8 @@ import { Role } from '@prisma/client'
 import { MessageInput, Pagination } from '@/lib/validation'
 import { checkMessageRate } from '@/lib/rateLimit'
 import { getIO } from '@/lib/io'
+import { logger } from '@/lib/logger'
+import { handleApiError } from '@/lib/apiError'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -82,7 +84,10 @@ export async function GET(request: Request) {
     })
 
     if (!dbUser) {
-      console.error('GET /api/chat/messages - User not found in database:', session.user.email)
+      logger.warn(
+        { routeName: 'GET /api/chat/messages', email: session.user.email },
+        'User not found in database'
+      )
       return Response.json({
         ok: false,
         code: 'USER_NOT_FOUND',
@@ -280,12 +285,7 @@ export async function GET(request: Request) {
       },
     })
   } catch (error: any) {
-    console.error('Error fetching messages:', error)
-    return Response.json({
-      ok: false,
-      code: 'INTERNAL_ERROR',
-      message: 'Unexpected error',
-    }, { status: 200 }) // messages.test.ts expects 200 even on errors
+    return await handleApiError(error, { routeName: 'GET /api/chat/messages' }, request)
   }
 }
 
@@ -314,28 +314,31 @@ export async function POST(request: Request) {
     if (body.ok && body.data?.roomId) {
       const io = getIO()
       if (io) {
-        io.to(body.data.roomId).emit('message:new', {
-          id: body.data.id,
-          roomId: body.data.roomId,
-          userId: body.data.userId,
-          content: body.data.content,
-          parentMessageId: body.data.parentMessageId,
-          createdAt: body.data.createdAt.toISOString(),
-          editedAt: body.data.editedAt?.toISOString() || null,
-          deletedAt: body.data.deletedAt?.toISOString() || null,
-          reactions: body.data.reactions || null,
-          user: body.data.user,
-        })
+        try {
+          io.to(body.data.roomId).emit('message:new', {
+            id: body.data.id,
+            roomId: body.data.roomId,
+            userId: body.data.userId,
+            content: body.data.content,
+            parentMessageId: body.data.parentMessageId,
+            createdAt: body.data.createdAt.toISOString(),
+            editedAt: body.data.editedAt?.toISOString() || null,
+            deletedAt: body.data.deletedAt?.toISOString() || null,
+            reactions: body.data.reactions || null,
+            user: body.data.user,
+          })
+        } catch (socketError) {
+          logger.error(
+            { routeName: 'POST /api/chat/messages', roomId: body.data.roomId },
+            socketError instanceof Error ? socketError : new Error(String(socketError)),
+            { action: 'socket_emit_failed' }
+          )
+        }
       }
     }
 
     return Response.json(body, { status })
   } catch (error: any) {
-    console.error('Error creating message:', error)
-    return Response.json({
-      ok: false,
-      code: 'INTERNAL_ERROR',
-      message: 'Unexpected error',
-    }, { status: 500 })
+    return await handleApiError(error, { routeName: 'POST /api/chat/messages' }, request)
   }
 }

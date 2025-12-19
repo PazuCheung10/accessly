@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { checkMessageRate, RateLimitedError } from '@/lib/rateLimit'
 import { MessageInput } from '@/lib/validation'
+import { logger } from '@/lib/logger'
 
 export type MessageCoreResponse =
   | { status: number; body: { ok: true; data: any } }

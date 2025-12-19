@@ -34,6 +34,9 @@ const envSchema = z.object({
   // AI Provider (optional, defaults to 'fake')
   TICKET_AI_PROVIDER: z.enum(['fake', 'openai']).optional(),
   OPENAI_API_KEY: z.string().optional(),
+
+  // Sentry (optional)
+  SENTRY_DSN: z.string().url().optional(),
 })
 
 // Parse and validate environment variables
@@ -53,6 +56,7 @@ function getEnv() {
     NODE_ENV: process.env.NODE_ENV,
     TICKET_AI_PROVIDER: process.env.TICKET_AI_PROVIDER,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    SENTRY_DSN: process.env.SENTRY_DSN,
   })
 
   if (!parsed.success) {

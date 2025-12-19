@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { Role, RoomType } from '@prisma/client'
 import { isInternalUser } from '@/lib/user-utils'
 import { TicketAIService } from '@/lib/ai/service'
+import { logger } from '@/lib/logger'
+import { handleApiError } from '@/lib/apiError'
 
 export const dynamic = 'force-dynamic'
 
@@ -165,11 +167,18 @@ export async function POST(request: Request) {
       })
     }
   } catch (error: any) {
-    console.error('Error in ticket-assistant API:', error)
-    return Response.json({
-      ok: false,
-      code: 'INTERNAL_ERROR',
-      message: error.message || 'Internal server error',
-    }, { status: 500 })
+    const session = await auth().catch(() => null)
+    const dbUser = session?.user?.email
+      ? await prisma.user.findUnique({ where: { email: session.user.email || '' }, select: { id: true } }).catch(() => null)
+      : null
+    
+    return await handleApiError(
+      error,
+      {
+        routeName: 'POST /api/ai/ticket-assistant',
+        userId: dbUser?.id,
+      },
+      request
+    )
   }
 }
