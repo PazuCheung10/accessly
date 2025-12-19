@@ -418,6 +418,26 @@ Accessly requires a **long-lived Node.js process** for real-time features:
   - Auto-refresh every 5 seconds
 - **Clickable Rooms**: Navigate directly to chat threads from dashboard
 
+### Operations & Observability (Phase 1 & 2)
+- **Structured Logging**: JSON-formatted logs with context (routeName, userId, requestId, duration)
+- **Request Logging**: Automatic logging of all API requests with:
+  - Request ID for correlation
+  - Duration tracking
+  - Slow request detection (>1000ms warnings)
+  - User context (if authenticated)
+- **Error Tracking**: 
+  - Centralized error handler with Sentry integration
+  - Request ID correlation between requests and errors
+  - Client-side error boundary for React errors
+- **Health Check**: `/api/health` endpoint for monitoring (DB and Redis status)
+- **Error Boundaries**: React Error Boundaries catch render errors gracefully
+- **Access Points**:
+  - **Health Check**: `http://localhost:3000/api/health` (anyone)
+  - **Request Logs**: Server terminal (structured JSON)
+  - **Telemetry Dashboard**: `/admin/telemetry` (admin only)
+  - **Sentry Dashboard**: sentry.io (if `SENTRY_DSN` configured)
+- **See**: `HOW_TO_VIEW_OBSERVABILITY.md` for detailed guide
+
 ### Audit Log System
 - **Comprehensive Audit Trail**: `/admin/audit` (admin only)
 - **Tracked Actions**:
@@ -464,6 +484,12 @@ Accessly requires a **long-lived Node.js process** for real-time features:
 - **User Experience**: Instant scroll positioning, flash-free transitions, responsive design, resilient to browser events
 - **Metrics Collection**: In-memory metrics store for observability (ready for Redis upgrade)
 - **Query Performance**: Prisma middleware tracks slow queries (>100ms)
+- **Operations Layer**: 
+  - Structured logging with request correlation
+  - Request duration tracking and slow request alerts
+  - Error tracking with Sentry integration (optional)
+  - Health check endpoint for monitoring
+  - React Error Boundaries for client-side error handling
 
 ## Tech Stack
 
@@ -478,6 +504,7 @@ Accessly requires a **long-lived Node.js process** for real-time features:
 - **Validation**: Zod
 - **Testing**: Vitest + Testing Library
 - **Visualization**: Recharts for observability dashboard
+- **Error Tracking**: Sentry (@sentry/nextjs) for error monitoring (optional)
 - **Password Hashing**: bcryptjs
 - **Date Formatting**: date-fns
 
@@ -940,7 +967,7 @@ src/
 - `GET /api/users/search?email=...` - Search user by email (for invites)
 
 ### System
-- `GET /api/status` - Health check (DB, Redis status)
+- `GET /api/health` - Health check (DB, Redis status) - unauthenticated
 - `GET /api/debug/session` - Debug session info
 - `GET /api/debug/rooms` - Debug room/membership info
 

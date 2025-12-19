@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { Role, TicketDepartment } from '@prisma/client'
 import { logger } from '@/lib/logger'
 import { handleApiError } from '@/lib/apiError'
+import { withRequestLogging } from '@/lib/requestLogger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -22,7 +23,7 @@ const TicketInput = z.object({
  * Create a new support ticket (external customers only)
  * Internal employees are blocked from submitting tickets
  */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     // Rate limiting: use IP address for anonymous users
     const forwarded = request.headers.get('x-forwarded-for')
@@ -198,4 +199,7 @@ export async function POST(request: Request) {
     )
   }
 }
+
+// Export with request logging
+export const POST = withRequestLogging(POSTHandler, 'POST /api/support/tickets')
 

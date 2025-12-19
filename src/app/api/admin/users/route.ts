@@ -52,6 +52,19 @@ export async function GET(request: Request) {
         role: true,
         image: true,
         createdAt: true,
+        ban: {
+          select: {
+            reason: true,
+            bannedAt: true,
+            expiresAt: true,
+          },
+        },
+        _count: {
+          select: {
+            messages: true,
+            memberships: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',

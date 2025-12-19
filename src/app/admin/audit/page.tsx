@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { AuditLogDashboard } from '@/components/admin/AuditLogDashboard'
 
 export const dynamic = 'force-dynamic'
@@ -35,7 +36,38 @@ export default async function AuditLogPage({
   return (
     <div className="min-h-screen bg-slate-950 text-white p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Audit Log</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-bold">Audit Log</h1>
+          <Link
+            href="/admin"
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          >
+            Back to Admin Panel
+          </Link>
+        </div>
+
+        {/* Admin Navigation */}
+        <div className="mb-8 flex flex-wrap gap-3">
+          <Link
+            href="/admin"
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          >
+            Overview
+          </Link>
+          <Link
+            href="/admin/telemetry"
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          >
+            📊 Observability Dashboard
+          </Link>
+          <Link
+            href="/admin/audit"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium"
+          >
+            📝 Audit Log
+          </Link>
+        </div>
+
         <AuditLogDashboard initialFilters={params} />
       </div>
     </div>

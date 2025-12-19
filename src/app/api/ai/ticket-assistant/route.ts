@@ -5,6 +5,7 @@ import { isInternalUser } from '@/lib/user-utils'
 import { TicketAIService } from '@/lib/ai/service'
 import { logger } from '@/lib/logger'
 import { handleApiError } from '@/lib/apiError'
+import { withRequestLogging } from '@/lib/requestLogger'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic'
  * POST /api/ai/ticket-assistant
  * Get AI insights for a ticket (internal staff only)
  */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const session = await auth()
     if (!session?.user) {
@@ -182,3 +183,6 @@ export async function POST(request: Request) {
     )
   }
 }
+
+// Export with request logging
+export const POST = withRequestLogging(POSTHandler, 'POST /api/ai/ticket-assistant')

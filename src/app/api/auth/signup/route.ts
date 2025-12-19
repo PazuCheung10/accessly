@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { logger } from '@/lib/logger'
 import { handleApiError } from '@/lib/apiError'
+import { withRequestLogging } from '@/lib/requestLogger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,7 +19,7 @@ const SignUpInput = z.object({
  * POST /api/auth/signup
  * Create a new user account (for external customers)
  */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const body = await request.json()
 
@@ -80,4 +81,7 @@ export async function POST(request: Request) {
     )
   }
 }
+
+// Export with request logging
+export const POST = withRequestLogging(POSTHandler, 'POST /api/auth/signup')
 

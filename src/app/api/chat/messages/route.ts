@@ -6,6 +6,7 @@ import { checkMessageRate } from '@/lib/rateLimit'
 import { getIO } from '@/lib/io'
 import { logger } from '@/lib/logger'
 import { handleApiError } from '@/lib/apiError'
+import { withRequestLogging } from '@/lib/requestLogger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic'
  * GET /api/chat/messages
  * List messages by roomId with cursor-based pagination
  */
-export async function GET(request: Request) {
+async function GETHandler(request: Request) {
   if (process.env.NODE_ENV !== 'production') {
     console.log("🔥 GET /api/chat/messages HIT", new Date().toISOString());
   }
@@ -293,7 +294,7 @@ export async function GET(request: Request) {
  * POST /api/chat/messages
  * Create a new message with validation, rate limiting, and persistence
  */
-export async function POST(request: Request) {
+async function POSTHandler(request: Request) {
   try {
     const { handlePostMessageCore } = await import('./core')
     const { status, body } = await handlePostMessageCore(request)
@@ -342,3 +343,7 @@ export async function POST(request: Request) {
     return await handleApiError(error, { routeName: 'POST /api/chat/messages' }, request)
   }
 }
+
+// Export with request logging
+export const GET = withRequestLogging(GETHandler, 'GET /api/chat/messages')
+export const POST = withRequestLogging(POSTHandler, 'POST /api/chat/messages')

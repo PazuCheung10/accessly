@@ -157,6 +157,16 @@ export function Navbar() {
               </Link>
             )}
 
+            {/* Admin Panel Link - visible only for admins */}
+            {session.user.role === 'ADMIN' && (
+              <Link
+                href="/admin"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-slate-900 font-medium"
+              >
+                Admin
+              </Link>
+            )}
+
             {/* Tickets Link - visible only for admins */}
             {session.user.role === 'ADMIN' && (
               <Link

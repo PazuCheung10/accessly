@@ -204,8 +204,8 @@ export function AdminPanel() {
                       </span>
                     )}
                   </td>
-                  <td className="py-2 px-4">{user._count.messages}</td>
-                  <td className="py-2 px-4">{user._count.memberships}</td>
+                  <td className="py-2 px-4">{user._count?.messages ?? 0}</td>
+                  <td className="py-2 px-4">{user._count?.memberships ?? 0}</td>
                   <td className="py-2 px-4">
                     <div className="flex gap-2">
                       {user.ban ? (

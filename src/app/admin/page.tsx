@@ -49,6 +49,28 @@ export default async function AdminPage() {
           </Link>
         </div>
 
+        {/* Admin Navigation */}
+        <div className="mb-8 flex flex-wrap gap-3">
+          <Link
+            href="/admin"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium"
+          >
+            Overview
+          </Link>
+          <Link
+            href="/admin/telemetry"
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          >
+            📊 Observability Dashboard
+          </Link>
+          <Link
+            href="/admin/audit"
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+          >
+            📝 Audit Log
+          </Link>
+        </div>
+
         {/* System Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-purple-500/10 backdrop-blur border border-purple-500/30 rounded-lg p-6">

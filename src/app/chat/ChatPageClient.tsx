@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChatRoom } from '@/components/ChatRoom'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 
 interface Room {
   id: string
@@ -560,10 +561,12 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
       {/* Chat Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {roomId ? (
-          <ChatRoom 
-            roomId={roomId} 
-            roomName={roomName}
-          />
+          <ErrorBoundary errorBoundaryName="ChatRoom">
+            <ChatRoom 
+              roomId={roomId} 
+              roomName={roomName}
+            />
+          </ErrorBoundary>
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">

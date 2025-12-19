@@ -4,6 +4,7 @@
  */
 
 import { logger } from './logger'
+import { getRequestId } from './requestLogger'
 
 interface ErrorContext {
   routeName: string
@@ -24,9 +25,12 @@ export async function handleApiError(
   const errorMessage = error instanceof Error ? error.message : String(error)
   const errorName = error instanceof Error ? error.name : 'UnknownError'
   
-  // Log error with context
+  // Extract requestId from async context (set by request logger) or from context
+  const requestId = getRequestId() || context.requestId
+  
+  // Log error with context (include requestId if available)
   logger.error(
-    context,
+    { ...context, requestId },
     error instanceof Error ? error : new Error(errorMessage),
     {
       errorName,
@@ -40,20 +44,27 @@ export async function handleApiError(
     try {
       // Dynamic import to avoid loading Sentry if not configured
       const Sentry = await import('@sentry/nextjs')
+      const sentryContext = { ...context }
+      if (requestId) {
+        sentryContext.requestId = requestId
+      }
+      
       if (error instanceof Error) {
         Sentry.captureException(error, {
           tags: {
             route: context.routeName,
+            requestId: requestId || 'unknown',
           },
-          extra: context,
+          extra: sentryContext,
         })
       } else {
         Sentry.captureMessage(errorMessage, {
           level: 'error',
           tags: {
             route: context.routeName,
+            requestId: requestId || 'unknown',
           },
-          extra: context,
+          extra: sentryContext,
         })
       }
     } catch (sentryError) {
