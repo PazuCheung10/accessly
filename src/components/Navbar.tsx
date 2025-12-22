@@ -176,6 +176,14 @@ export function Navbar() {
                 Tickets
               </Link>
             )}
+
+            {/* Activity Feed Link - visible for all authenticated users */}
+            <Link
+              href="/activity"
+              className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+            >
+              Activity
+            </Link>
           </div>
 
           <div className="flex items-center gap-6">

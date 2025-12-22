@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { Role, RoomRole } from '@prisma/client'
+import { logAction } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -52,7 +53,7 @@ export async function POST(
     // Verify ticket exists and is a TICKET type
     const ticket = await prisma.room.findUnique({
       where: { id: ticketId },
-      select: { type: true },
+      select: { type: true, title: true },
     })
 
     if (!ticket || ticket.type !== 'TICKET') {
@@ -66,7 +67,7 @@ export async function POST(
     // Verify assignee is an admin
     const assignee = await prisma.user.findUnique({
       where: { id: assignToUserId },
-      select: { id: true, role: true },
+      select: { id: true, role: true, name: true, email: true },
     })
 
     if (!assignee || assignee.role !== Role.ADMIN) {
@@ -119,6 +120,14 @@ export async function POST(
         },
       })
     }
+
+    // Log audit action
+    await logAction('ticket.assign', dbUser.id, 'room', ticketId, {
+      assignedToUserId: assignee.id,
+      assignedToName: assignee.name || assignee.email || 'Unknown',
+      ticketTitle: ticket.title,
+      previousOwnerId: currentOwner?.userId || null,
+    })
 
     return Response.json({
       ok: true,

@@ -9,6 +9,7 @@ export type AuditAction =
   | 'room.edit'
   | 'message.delete'
   | 'ticket.status.change'
+  | 'ticket.assign'
 
 export interface AuditMetadata {
   reason?: string
