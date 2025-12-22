@@ -273,18 +273,23 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
           }
         }
         
-        // If no room selected yet, pick first PUBLIC or PRIVATE room
+        // If no room selected yet, pick first available room
         if (!roomId && rooms.length > 0) {
-          // Filter to only PUBLIC and PRIVATE rooms (exclude DM and TICKET)
-          const teamRooms = rooms.filter((r) => r.type === 'PUBLIC' || r.type === 'PRIVATE')
+          // For external customers: pick first TICKET room
+          // For internal users: pick first PUBLIC or PRIVATE room
+          let firstRoom
+          if (isExternalCustomer === true) {
+            firstRoom = rooms.find((r) => r.type === 'TICKET')
+          } else {
+            firstRoom = rooms.find((r) => r.type === 'PUBLIC' || r.type === 'PRIVATE')
+          }
           
-          if (teamRooms.length > 0) {
-            const firstRoom = teamRooms[0]
-            const displayName = firstRoom.name || firstRoom.title || 'General'
+          if (firstRoom) {
+            const displayName = firstRoom.name || firstRoom.title || (firstRoom.type === 'TICKET' ? 'Ticket' : 'General')
             setRoomName(displayName)
             setRoomId(firstRoom.id)
           } else {
-            // No team rooms available - clear selection
+            // No rooms available - clear selection
             setRoomId(null)
             setRoomName('')
           }
@@ -318,26 +323,29 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
 
   return (
     <div className="h-full bg-slate-950 text-white flex overflow-hidden">
-      {/* Room Sidebar - Hidden for external customers */}
-      {isExternalCustomer !== true && (
+      {/* Room Sidebar - Show for all users (external customers see their tickets) */}
       <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-full flex-shrink-0">
         <div className="p-4 border-b border-slate-800 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Chat</h2>
-            <a
-              href="/"
-              className="px-3 py-1 text-sm bg-cyan-600 hover:bg-cyan-700 rounded transition-colors"
-            >
-              Discover
-            </a>
+            <h2 className="text-lg font-semibold">
+              {isExternalCustomer === true ? 'My Tickets' : 'Chat'}
+            </h2>
+            {isExternalCustomer !== true && (
+              <a
+                href="/"
+                className="px-3 py-1 text-sm bg-cyan-600 hover:bg-cyan-700 rounded transition-colors"
+              >
+                Discover
+              </a>
+            )}
           </div>
           <div className="text-xs text-slate-500">
             Signed in as: {session.user?.email}
           </div>
         </div>
 
-        {/* Tab Switcher */}
-        {session?.user?.role === 'ADMIN' && (
+        {/* Tab Switcher - Only for admins (not external customers) */}
+        {session?.user?.role === 'ADMIN' && isExternalCustomer !== true && (
           <div className="p-4 border-b border-slate-800">
             <div className="flex gap-2">
               <button
@@ -366,9 +374,60 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
 
         {/* Room/Ticket Lists */}
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
-          {activeTab === 'rooms' ? (
+          {isExternalCustomer === true ? (
+            // External customers: show their tickets directly (from myRooms which now includes TICKET rooms)
             (() => {
-              // Only show PUBLIC and PRIVATE rooms (exclude DM and TICKET)
+              const ticketRooms = myRooms.filter((r) => r.type === 'TICKET')
+              
+              if (ticketRooms.length === 0) {
+                return (
+                  <div className="text-xs text-slate-500 p-4 text-center">
+                    <div>No tickets found</div>
+                    <a
+                      href="/support"
+                      className="mt-2 inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded text-sm transition-colors"
+                    >
+                      Create Ticket
+                    </a>
+                  </div>
+                )
+              }
+              
+              return (
+                <div className="space-y-1">
+                  {ticketRooms.map((room) => (
+                    <button
+                      key={room.id}
+                      onClick={() => {
+                        if (roomId !== room.id) {
+                          setRoomName(room.name || room.title || 'Ticket')
+                          setRoomId(room.id)
+                          const params = new URLSearchParams(window.location.search)
+                          params.set('room', room.id)
+                          params.delete('view')
+                          router.push(`/chat?${params.toString()}`, { scroll: false })
+                        }
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
+                        roomId === room.id
+                          ? 'bg-cyan-600 text-white'
+                          : 'bg-slate-800 hover:bg-slate-700'
+                      }`}
+                    >
+                      <span className="truncate">{room.title || room.name}</span>
+                      {room._count && (
+                        <span className="text-xs opacity-70 ml-2 flex-shrink-0">
+                          {room._count.messages || 0}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )
+            })()
+          ) : activeTab === 'rooms' ? (
+            (() => {
+              // Only show PUBLIC and PRIVATE rooms (exclude DM and TICKET for internal users)
               const teamRooms = myRooms.filter((r) => r.type === 'PUBLIC' || r.type === 'PRIVATE')
               
               if (teamRooms.length === 0) {
@@ -556,7 +615,6 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
           )}
         </div>
       </div>
-      )}
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
