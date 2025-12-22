@@ -96,7 +96,10 @@ export async function GET(request: Request) {
               type: true,
               isPrivate: true,
               department: true,
+              status: true, // Ticket status (OPEN, WAITING, RESOLVED)
+              ticketDepartment: true, // Ticket department (IT_SUPPORT, BILLING, etc.)
               createdAt: true,
+              updatedAt: true,
               creator: {
                 select: {
                   id: true,

@@ -15,6 +15,10 @@ interface Room {
   tags?: string[]
   type?: string
   isPrivate: boolean
+  status?: 'OPEN' | 'WAITING' | 'RESOLVED' | null // For TICKET rooms
+  ticketDepartment?: string | null // For TICKET rooms
+  createdAt?: string
+  updatedAt?: string
   _count?: {
     members: number
     messages: number
@@ -375,17 +379,67 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
         {/* Room/Ticket Lists */}
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
           {isExternalCustomer === true ? (
-            // External customers: show ONLY their TICKET rooms (API should only return TICKET rooms, but filter to be safe)
+            // External customers: show ONLY their TICKET rooms with nice card styling
             (() => {
               const ticketRooms = myRooms.filter((r) => r.type === 'TICKET')
               
+              // Helper functions for ticket display (reused from TicketsList)
+              const getStatusColor = (status: string | null | undefined) => {
+                switch (status) {
+                  case 'OPEN':
+                    return 'bg-green-500/20 text-green-400 border-green-500/30'
+                  case 'WAITING':
+                    return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                  case 'RESOLVED':
+                    return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                  default:
+                    return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                }
+              }
+
+              const getDepartmentLabel = (department: string | null | undefined) => {
+                if (!department) return 'General'
+                switch (department) {
+                  case 'IT_SUPPORT':
+                    return 'IT Support'
+                  case 'BILLING':
+                    return 'Billing'
+                  case 'PRODUCT':
+                    return 'Product'
+                  case 'GENERAL':
+                    return 'General'
+                  default:
+                    return department
+                }
+              }
+
+              const getDepartmentColor = (department: string | null | undefined) => {
+                switch (department) {
+                  case 'IT_SUPPORT':
+                    return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                  case 'BILLING':
+                    return 'bg-green-500/20 text-green-400 border-green-500/30'
+                  case 'PRODUCT':
+                    return 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                  case 'GENERAL':
+                    return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                  default:
+                    return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                }
+              }
+
+              const cleanTitle = (title: string | null | undefined) => {
+                if (!title) return 'Ticket'
+                return title.replace(/^\[TICKET\]\[[^\]]+\]\s*/, '').replace(/^\[TICKET\]\s*/, '').replace(/^\[[^\]]+\]\s*/, '').trim()
+              }
+              
               if (ticketRooms.length === 0) {
                 return (
-                  <div className="text-xs text-slate-500 p-4 text-center">
-                    <div>No tickets found</div>
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-8 text-center">
+                    <p className="text-slate-400 mb-4">No tickets found</p>
                     <a
                       href="/support"
-                      className="mt-2 inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded text-sm transition-colors"
+                      className="inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded text-sm transition-colors"
                     >
                       Create Ticket
                     </a>
@@ -394,7 +448,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
               }
               
               return (
-                <div className="space-y-1">
+                <div className="space-y-3">
                   {ticketRooms.map((room) => (
                     <button
                       key={room.id}
@@ -408,18 +462,50 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
                           router.push(`/chat?${params.toString()}`, { scroll: false })
                         }
                       }}
-                      className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
-                        roomId === room.id
-                          ? 'bg-cyan-600 text-white'
-                          : 'bg-slate-800 hover:bg-slate-700'
+                      className={`w-full text-left bg-slate-800/50 border border-slate-700 rounded-lg p-4 hover:bg-slate-800 transition-colors ${
+                        roomId === room.id ? 'ring-2 ring-cyan-500' : ''
                       }`}
                     >
-                      <span className="truncate">{room.title || room.name}</span>
-                      {room._count && (
-                        <span className="text-xs opacity-70 ml-2 flex-shrink-0">
-                          {room._count.messages || 0}
-                        </span>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <h3 className="text-sm font-semibold text-slate-200 truncate">
+                              {cleanTitle(room.title || room.name)}
+                            </h3>
+                            {room.ticketDepartment && (
+                              <span
+                                className={`px-2 py-0.5 text-xs font-semibold rounded border flex-shrink-0 ${getDepartmentColor(room.ticketDepartment)}`}
+                              >
+                                {getDepartmentLabel(room.ticketDepartment)}
+                              </span>
+                            )}
+                            {room.status && (
+                              <span
+                                className={`px-2 py-0.5 text-xs rounded border flex-shrink-0 ${getStatusColor(room.status)}`}
+                              >
+                                {room.status}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {room.lastMessage && (
+                        <div className="bg-slate-900/50 rounded p-2 mb-2">
+                          <p className="text-xs text-slate-300 line-clamp-2">
+                            {room.lastMessage.content}
+                          </p>
+                        </div>
                       )}
+
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>
+                          {room._count?.messages || 0} {room._count?.messages === 1 ? 'message' : 'messages'}
+                        </span>
+                        {room.updatedAt && (
+                          <span>Updated {new Date(room.updatedAt).toLocaleDateString()}</span>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>
