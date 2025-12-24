@@ -7,9 +7,8 @@
 This project demonstrates my ability to design and build a real-world SaaS product end-to-end:
 
 - Realtime chat & presence powered by Socket.io  
-- Helpdesk ticket workflow with threaded conversations  
-- Public support form connected to ticket creation  
-- Role-based access control (admin, agent, client)  
+- Internal issue management with threaded conversations  
+- Role-based access control (admin, user)  
 - Full-text search, observability tools, and audit logging  
 - Complete SSR + client-side interactivity using Next.js 15
 
@@ -72,7 +71,7 @@ That's it! The demo script will:
 SolaceDesk provides a single place for internal teams to collaborate and manage customer support:
 
 - **Team Collaboration Rooms**: Internal teams collaborate in public and private rooms with real-time chat, threaded conversations, and full-text search
-- **Support Ticket Management**: Customer support tickets are created via public form, managed by admins, and handled through threaded conversations
+- **Issue Management**: Internal issues are created and managed by admins, with assignment capabilities and threaded conversations
 - **Unified Experience**: Both team rooms and support tickets use the same chat interface, making it easy for staff to switch between collaboration and support work
 - **Real-Time Communication**: Instant messaging with Socket.io, typing indicators, and presence tracking
 - **Persistent Context**: All conversations are searchable and archived, maintaining context over time
@@ -90,7 +89,7 @@ SolaceDesk provides a single place for internal teams to collaborate and manage 
 ### Use Cases
 
 - **Internal Team Collaboration**: Internal staff collaborate in public/private rooms with threaded discussions and search
-- **Customer Support Management**: Support tickets created via public form, managed by admins with status tracking, department categorization, and threaded conversations
+- **Issue Management**: Internal issues created and managed by admins with status tracking, department categorization, assignment, and threaded conversations
 - **Unified Helpdesk**: Single workspace where internal teams can collaborate and handle customer support tickets in one place
 
 ## Architecture
@@ -137,7 +136,7 @@ The home page provides a workspace for internal team collaboration:
 - **Discover Section**: Browse public team rooms with search, tag filters, and sorting
 - **Room Cards**: Display title, description, tags, member count, and last message snippet
 - **Create Room**: Modal form to create new public or private team rooms
-- **Support Link**: Quick access to submit support tickets
+- **Issues Link**: Quick access to view assigned issues
 
 ### 2. Chat Room - Threaded Conversations
 
@@ -154,18 +153,19 @@ Real-time chat with hierarchical threading support:
 - **Presence Indicators**: See who's online in real-time
 - **Typing Indicators**: Know when someone is typing
 
-### 3. Support Tickets
+### 3. Issue Management
 
-Customer support ticket system with threaded conversations:
+Internal issue management system with threaded conversations:
 
 **Features**:
-- **Public Submission**: Anyone can submit tickets via `/support` page (no authentication required)
-- **Department Categorization**: Tickets are categorized by department (IT Support, Billing, Product, General)
-- **Admin Management**: Tickets managed via `/tickets` page (admin only) with filtering and status controls
+- **Admin Creation**: Admins create issues via `/tickets` page with title, description, department, and initial assignment
+- **Department Categorization**: Issues are categorized by department (IT Support, Billing, Product, General)
+- **Admin Management**: Issues managed via `/tickets` page (admin only) with filtering and status controls
+- **User Assignment**: Admins can assign issues to any user; assigned users can view their issues via `/issues` page
 - **Status Tracking**: OPEN, WAITING, RESOLVED status with admin controls
-- **Thread Support**: Full threading capabilities in ticket conversations
-- **Ticket Chat Interface**: Tickets accessed via `/chat?room={ticketId}` with breadcrumb navigation back to ticket list
-- **Separate from Team Rooms**: Tickets are managed separately and do not appear in team room lists
+- **Thread Support**: Full threading capabilities in issue conversations
+- **Issue Chat Interface**: Issues accessed via `/chat?room={issueId}` with breadcrumb navigation back to issue list
+- **Separate from Team Rooms**: Issues are managed separately and appear in the "Issues" tab in chat sidebar for assigned users
 
 ### 4. Admin Dashboard
 
@@ -338,12 +338,16 @@ Accessly requires a **long-lived Node.js process** for real-time features:
   - Breadcrumb navigation back to tickets list for ticket rooms
   - Inline editing for OWNER (title, description, tags)
   - Ticket-specific info: assigned owner, last responder, average response time
-  - "Assign to..." button for ticket reassignment (admin only)
+  - "Assign" button for issue/user assignment (OWNER or ADMIN)
+    - For TICKET rooms: assigns issue to selected user
+    - For PUBLIC/PRIVATE rooms: assigns user as MODERATOR
   - Visibility badges (Public/Private/Ticket)
   - Tag display
   - User role badge
-  - Edit button (OWNER)
-  - Invite button (OWNER/MODERATOR, hidden for TICKET)
+  - Edit button (OWNER or ADMIN)
+  - Invite/Add Participant button (OWNER/MODERATOR/ADMIN)
+    - For PRIVATE rooms: user dropdown selector
+    - For TICKET rooms: email input (adds participant)
   - Members button with count
 - **Message Actions**:
   - Edit own messages (within 10 minutes)
@@ -364,27 +368,30 @@ Accessly requires a **long-lived Node.js process** for real-time features:
   - Support form rate limiting: max 3 submissions per 5 minutes per IP
   - Hard limit enforced on backend (in-memory, ready for Redis upgrade)
 
-### Support Ticket System
-- **Public Support Form**: `/support` page (no authentication required)
-  - Submit tickets with name, email, subject, and message
-  - Automatic ticket creation with OPEN status
-  - First admin assigned as OWNER
-  - Rate limiting to prevent spam
-- **Ticket Management**: `/tickets` page (admin only)
-  - View all support tickets
+### Issue Management System
+- **Issue Creation**: Admins create issues via `/tickets` page
+  - Create issues with title, description, department, and optional initial assignment
+  - Automatic issue creation with OPEN status
+  - Creator assigned as OWNER
+- **Issue Management**: `/tickets` page (admin only)
+  - View all issues
   - Filter by status (OPEN/WAITING/RESOLVED)
-  - Update ticket status
-  - Assign tickets to admins
+  - Update issue status
+  - Assign issues to any user (not just admins)
   - Thread structure: first message is main issue, replies are threads
-  - **Note**: Tickets are separate from team rooms and only accessible via the tickets page or direct URL (`/chat?room={ticketId}`)
-- **Ticket Metrics**: 
+  - **Note**: Issues are separate from team rooms and accessible via the issues/tickets page or direct URL (`/chat?room={issueId}`)
+- **My Issues**: `/issues` page (all users)
+  - View issues assigned to the current user
+  - Access issue chat rooms directly
+  - Issues also appear in the "Issues" tab in chat sidebar
+- **Issue Metrics**: 
   - Last responder tracking
   - Average response time calculation
-  - Assigned owner display
+  - Assigned user display
 - **Room Separation**:
-  - Team rooms (PUBLIC/PRIVATE) appear in chat sidebar and home page
-  - Tickets are managed separately and do not appear in the room list
-  - Chat sidebar shows only PUBLIC and PRIVATE rooms for team collaboration
+  - Team rooms (PUBLIC/PRIVATE) appear in "Rooms" tab in chat sidebar
+  - Issues appear in "Issues" tab in chat sidebar for assigned users
+  - Admins can see all issues in the "Issues" tab
 
 ### Full-Text Search
 - **PostgreSQL tsvector**: Fast full-text search with GIN indexes
@@ -435,7 +442,7 @@ Accessly requires a **long-lived Node.js process** for real-time features:
   - Redis-backed rate limiting for multi-instance deployments
   - Automatic fallback to in-memory store if Redis unavailable
   - Multi-instance safe when Redis is configured
-  - Applied to messages, support forms, and general API requests
+  - Applied to messages and general API requests
 - **Lightweight Metrics** (Phase 3):
   - 5xx error counters (total and per-route)
   - AI assistant failure tracking
@@ -579,7 +586,7 @@ pnpm prisma migrate dev
 # Seed database (creates admin user, regular user, and sample rooms)
 pnpm db:seed
 
-# Or seed with realistic demo data (creates 5–8 users, a dozen rooms, and dozens of ticket replies)
+# Or seed with realistic demo data (creates 5–8 users, a dozen rooms, and dozens of issue replies)
 pnpm db:seed-demo
 ```
 
@@ -600,7 +607,7 @@ pnpm db:seed-demo
 4. ✅ Waits for services to be healthy
 5. ✅ Runs database migrations
 6. ✅ Generates Prisma client
-7. ✅ Seeds realistic demo data with multiple teams, clients, ticket threads, and 150+ messages
+7. ✅ Seeds realistic demo data with multiple teams, issues, threaded conversations, and 150+ messages
 8. ✅ Starts the application
 
 **Prerequisites:**
@@ -634,7 +641,7 @@ Once the app starts, you can sign in with any of these accounts:
 
 **Demo Data Includes:**
 - Multiple users (admins, agents, clients)
-- Various room types (team rooms, private rooms, tickets)
+- Various room types (team rooms, private rooms, issues)
 - Realistic message history with threaded conversations
 - Room memberships and permissions
 - Tags and room metadata
@@ -846,10 +853,10 @@ src/
 │   │   │   ├── messages/  # Message CRUD
 │   │   │   │   └── [messageId]/ # Message actions (edit, delete, reactions)
 │   │   │   └── dm/        # Direct message creation (disabled)
-│   │   ├── support/        # Public support tickets
-│   │   │   └── tickets/   # Ticket creation (no auth)
-│   │   ├── tickets/       # Ticket management (admin)
-│   │   │   └── [ticketId]/ # Ticket operations (status, assign)
+│   │   ├── tickets/       # Issue management (admin)
+│   │   │   ├── route.ts   # List all issues, create issue
+│   │   │   └── [ticketId]/ # Issue operations (status, assign)
+│   │   │       └── assign/ # Assign issue to user
 │   │   ├── search/        # Full-text search
 │   │   ├── admin/         # Admin endpoints
 │   │   │   ├── users/     # User management
@@ -862,7 +869,7 @@ src/
 │   ├── chat/              # Chat interface
 │   │   ├── page.tsx       # Server component (reads searchParams)
 │   │   └── ChatPageClient.tsx # Client component (interactive logic)
-│   ├── support/           # Public support form
+│   ├── issues/            # My Issues page (assigned issues)
 │   ├── search/            # Search results page
 │   ├── tickets/           # Ticket management (admin)
 │   ├── admin/             # Admin panel (SSR, ADMIN only)
@@ -879,8 +886,10 @@ src/
 │   ├── admin/            # Admin components
 │   │   ├── TelemetryDashboard.tsx # Observability dashboard
 │   │   └── AuditLogDashboard.tsx  # Audit log viewer
-│   ├── tickets/          # Ticket components
-│   │   └── TicketsList.tsx # Ticket list with filtering
+│   ├── tickets/          # Issue components
+│   │   └── TicketsList.tsx # Issue list with filtering
+│   ├── issues/           # Issue components
+│   │   └── MyIssuesList.tsx # My Issues list
 │   ├── ChatRoom.tsx       # Chat room component with threading
 │   ├── MessageItem.tsx    # Individual message display with actions
 │   ├── ThreadView.tsx     # Thread replies display
@@ -899,33 +908,33 @@ src/
 │   ├── chatStore.ts       # Zustand store for chat state (with threading)
 │   ├── scroll.ts          # Scroll utilities (preserve, restore)
 │   ├── io.ts              # Socket.io server singleton
-│   ├── rateLimit.ts       # Rate limiting (messages, support forms)
+│   ├── rateLimit.ts       # Rate limiting (messages)
 │   ├── audit.ts           # Audit logging helpers
 │   ├── search.ts          # Search query parsing and utilities
 │   ├── metrics.ts         # Metrics collection service
 │   └── telemetry.ts       # Telemetry tracking utilities
 ├── data/                  # Seed scripts
 │   ├── seed.ts            # Basic seed (admin + user)
-│   ├── seed-demo.ts       # Demo data (teams, clients, tickets, threaded messages)
+│   ├── seed-demo.ts       # Demo data (teams, issues, threaded messages)
 │   └── diagnose-chat.ts   # Diagnostic tools
 ├── tests/                 # Test files
 │   ├── unit/              # Unit tests
 │   │   ├── audit.test.ts      # Audit logging tests
 │   │   ├── threading.test.ts  # Threading structure tests
-│   │   ├── tickets.test.ts    # Ticket logic tests
+│   │   ├── tickets.test.ts    # Issue logic tests
 │   │   ├── rateLimit.test.ts  # Rate limiting tests
 │   │   └── ...
 │   ├── api/               # API endpoint tests
 │   │   ├── audit.test.ts           # Audit API tests
 │   │   ├── audit-integration.test.ts # Integration tests
 │   │   ├── threading.test.ts       # Threading API tests
-│   │   ├── tickets.test.ts         # Ticket API tests
+│   │   ├── tickets.test.ts         # Issue API tests
 │   │   └── ...
 │   └── components/         # Component tests
 ├── prisma/                # Prisma schema and migrations
 │   └── migrations/        # Database migrations
 │       ├── ..._add_threading/
-│       ├── ..._add_ticket_support/
+│       ├── ..._add_issue_support/
 │       └── ..._add_fulltext_search/
 └── server/                # Custom Node.js server entry
     └── index.ts           # HTTP server + Socket.io setup (with telemetry)
@@ -959,11 +968,12 @@ src/
 - `POST /api/chat/messages/[messageId]/reactions` - Add/remove emoji reaction
 
 
-### Support Tickets
-- `POST /api/support/tickets` - Create support ticket (public, no auth)
-- `GET /api/tickets` - List all tickets (admin only, filterable by status)
-- `PATCH /api/tickets/[ticketId]/status` - Update ticket status (admin only)
-- `POST /api/tickets/[ticketId]/assign` - Assign ticket to admin (admin only)
+### Issues
+- `GET /api/tickets` - List all issues (admin only, filterable by status)
+- `POST /api/tickets` - Create new issue (admin only)
+- `PATCH /api/tickets/[ticketId]/status` - Update issue status (admin only)
+- `POST /api/tickets/[ticketId]/assign` - Assign issue to user (admin only)
+- `GET /api/tickets/my-tickets` - List issues assigned to current user
 
 ### Search
 - `POST /api/search` - Full-text search across messages and rooms
@@ -1011,7 +1021,7 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
 - **Create Room**: Modal form accessible from header
 
 ### Chat Page
-- **Sidebar**: List of joined PUBLIC and PRIVATE rooms (tickets accessible via `/tickets` page)
+- **Sidebar**: Two tabs - "Rooms" (PUBLIC/PRIVATE rooms) and "Issues" (assigned issues)
 - **Chat Area**: Messages with threading support
   - Root messages with reply buttons
   - Expandable/collapsible threads
@@ -1024,10 +1034,10 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
   - Status badge for tickets (OPEN/WAITING/RESOLVED)
   - Tag badges
   - User role badge
-  - Ticket info: assigned owner, last responder, average response time
-  - Edit button (OWNER only)
-  - Assign button (tickets, admin only)
-  - Invite button (OWNER/MODERATOR, hidden for TICKET)
+  - Issue info: assigned user, last responder, average response time
+  - Edit button (OWNER or ADMIN)
+  - Assign button (OWNER or ADMIN) - for issues or room moderators
+  - Invite/Add Participant button (OWNER/MODERATOR/ADMIN) - user dropdown for PRIVATE, email for TICKET
   - Members button
 - **Message Input**: 
   - Send messages with realtime delivery
@@ -1102,11 +1112,12 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
 ### Room Types
 - **PUBLIC**: Discoverable in forum, anyone can join
 - **PRIVATE**: Hidden from discovery, invite-only
-- **TICKET**: Support ticket with status tracking (OPEN/WAITING/RESOLVED)
-  - Created via public support form (`/support`)
+- **TICKET**: Internal issue with status tracking (OPEN/WAITING/RESOLVED)
+  - Created by admins via `/tickets` page
   - Managed via tickets page (`/tickets` - admin only)
-  - Accessible via direct URL (`/chat?room={ticketId}`)
-  - **Note**: Tickets are separate from team rooms and do not appear in chat sidebar
+  - Assigned users can view via `/issues` page
+  - Accessible via direct URL (`/chat?room={issueId}`)
+  - **Note**: Issues appear in the "Issues" tab in chat sidebar for assigned users
 
 ### Room Roles
 - **OWNER**: Created the room, can edit metadata, invite/remove members
@@ -1121,11 +1132,11 @@ See [docs/scaling.md](./docs/scaling.md) for scaling strategies.
 - **Creator**: Tracks who created the room
 - **Metadata Editing**: OWNER can update title, description, tags (with audit logging)
 - **Member Management**: OWNER/MODERATOR can invite and remove members
-- **Ticket Features**:
+- **Issue Features**:
   - Status tracking (OPEN/WAITING/RESOLVED)
-  - Admin assignment
+  - User assignment (any user, not just admins)
   - Response metrics (last responder, average response time)
-  - Public submission form (no auth required)
+  - Admin creation and management
 
 ### Room Discovery
 - **Search**: Full-text search across title, name, description
@@ -1152,7 +1163,7 @@ pnpm prisma:gen       # Generate Prisma client
 pnpm prisma:migrate   # Run migrations (dev)
 pnpm prisma:deploy    # Deploy migrations (production)
 pnpm db:seed          # Seed database (basic)
-pnpm db:seed-demo     # Seed database (creates 5–8 users, a dozen rooms, and dozens of ticket replies)
+pnpm db:seed-demo     # Seed database (creates 5–8 users, a dozen rooms, and dozens of issue replies)
 pnpm db:check         # Check user memberships
 pnpm db:diagnose      # Comprehensive diagnostics
 pnpm demo             # Quick demo: migrate + seed-demo + start
@@ -1171,7 +1182,7 @@ pnpm check:ssg        # Check SSG safety
 ## Navigation Flow
 
 1. **After Login** → Redirects to Team Workspace (`/`)
-2. **Team Workspace** → Internal collaboration rooms and customer support tickets in one place
+2. **Team Workspace** → Internal collaboration rooms and issue management in one place
 3. **Click Room Card** → Navigates to `/chat?room={roomId}` (auto-joins if public)
 4. **Chat Page** → Server component reads URL params, passes to client component
 5. **Chat Interface** → Shows only joined rooms, full chat interface with persistent state
@@ -1211,7 +1222,7 @@ Quick demo steps:
 3. Login: `admin@solace.com` / `demo123`
 4. Follow the demo script to showcase:
    - Threading system
-   - Ticket management
+   - Issue management
    - Full-text search
    - Real-time features
    - Export & audit logging
@@ -1223,7 +1234,7 @@ Screenshots are available in the [Feature Tour](#feature-tour) section above. Al
 
 - `home-page.png` - Forum-style room discovery page
 - `chat-room.png` - Chat interface with threaded conversations
-- `tickets-page.png` - Ticket management interface
+- `tickets-page.png` - Issue management interface
 - `admin-dashboard.png` - Admin dashboard with user management
 - `telemetry-dashboard.png` - Observability dashboard with metrics
 - `search-results.png` - Search results with highlighting
@@ -1239,7 +1250,7 @@ The project includes comprehensive test coverage:
 - **Unit Tests**: Core utilities, helpers, and business logic
 - **API Tests**: All API endpoints with authentication and authorization
 - **Component Tests**: React components with user interactions
-- **Integration Tests**: End-to-end workflows (threading, tickets, search)
+- **Integration Tests**: End-to-end workflows (threading, issues, search)
 
 ### Running Tests
 
