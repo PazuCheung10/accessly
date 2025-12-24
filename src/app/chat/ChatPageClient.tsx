@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { ChatRoom } from '@/components/ChatRoom'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { initSocket } from '@/lib/socket'
+import { useChatStore } from '@/lib/chatStore'
 
 interface Room {
   id: string
@@ -397,17 +398,37 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 
-  // Listen to socket events to update room list when new messages arrive
+  // Join all user rooms via socket and listen for messages
   useEffect(() => {
-    if (status !== 'authenticated' || !session?.user?.id) return
+    if (status !== 'authenticated' || !session?.user?.id || myRooms.length === 0) return
 
     const socket = initSocket(session.user.id)
+
+    // Join all rooms the user is a member of
+    myRooms.forEach((room) => {
+      socket.emit('room:join', { roomId: room.id, userId: session.user.id })
+    })
 
     const handleMessageNew = (message: any) => {
       // Validate message structure
       if (!message || !message.roomId || !message.id) {
         return
       }
+
+      // Update chat store if this room is being viewed
+      const { upsertMessages } = useChatStore.getState()
+      upsertMessages(message.roomId, [{
+        id: message.id,
+        roomId: message.roomId,
+        userId: message.userId,
+        content: message.content,
+        parentMessageId: message.parentMessageId || null,
+        createdAt: message.createdAt,
+        editedAt: message.editedAt || null,
+        deletedAt: message.deletedAt || null,
+        reactions: message.reactions || null,
+        user: message.user,
+      }])
       // Update the room list with the new last message
       setMyRooms((prevRooms) => {
         const roomIndex = prevRooms.findIndex((r) => r.id === message.roomId)
@@ -489,8 +510,12 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
 
     return () => {
       socket.off('message:new', handleMessageNew)
+      // Leave all rooms when component unmounts
+      myRooms.forEach((room) => {
+        socket.emit('room:leave', { roomId: room.id, userId: session.user.id })
+      })
     }
-  }, [status, session?.user?.id, activeTab])
+  }, [status, session?.user?.id, activeTab, myRooms])
 
   if (status === 'loading' || isLoading) {
     return (

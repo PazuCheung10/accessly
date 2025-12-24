@@ -274,8 +274,19 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     const hasMessages = !!room && Array.isArray(room.messages) && room.messages.length > 0
 
     if (hasMessages) {
-      // Only fetch newer if we already have some messages
-      void fetchNewerAfter()
+      // Check if cached messages are recent (within last 5 minutes)
+      // If not, refetch to ensure we have the latest
+      const lastMessage = room.messages[room.messages.length - 1]
+      const lastMessageTime = new Date(lastMessage.createdAt).getTime()
+      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
+      
+      if (lastMessageTime < fiveMinutesAgo) {
+        // Cached messages are old, refetch initial to get latest
+        void fetchInitial()
+      } else {
+        // Recent messages, just fetch newer ones
+        void fetchNewerAfter()
+      }
       return
     }
 
