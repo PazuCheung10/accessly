@@ -17,6 +17,7 @@ vi.mock('@/lib/prisma', () => ({
     room: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
     },
@@ -40,6 +41,10 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/io', () => ({
   getIO: vi.fn(() => null),
+}))
+
+vi.mock('@/lib/audit', () => ({
+  logAction: vi.fn(),
 }))
 
 vi.mock('@/lib/rbac', async () => {
@@ -596,20 +601,127 @@ describe('Room Operations Integration Tests', () => {
       expect(data.code).toBe('FORBIDDEN')
     })
 
-    it('should reject invite to public room', async () => {
-      const mockUser = {
-        id: 'user-1',
-        email: 'owner@example.com',
-        role: 'USER' as const,
+    it('should allow ADMIN to invite user to public room', async () => {
+      const mockAdmin = {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        role: 'ADMIN' as const,
       }
 
-      vi.mocked(mockAuth).mockResolvedValue({ user: mockUser })
+      const targetUser = {
+        id: 'user-2',
+        name: 'Target User',
+        email: 'target@example.com',
+      }
+
+      vi.mocked(mockAuth).mockResolvedValue({ user: mockAdmin })
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+        id: 'admin-1',
+        role: 'ADMIN',
+      } as any).mockResolvedValueOnce({
+        id: 'clxxxxxxxxxxxxxxxxxxxxx2',
+        name: 'Target User',
+        email: 'target@example.com',
+      } as any)
+      
       vi.mocked(prisma.room.findUnique).mockResolvedValue({
         id: 'room-1',
         name: '#public',
         title: 'Public Room',
         type: RoomType.PUBLIC,
         isPrivate: false,
+      } as any)
+      
+      // Admin is not a member initially, but should be auto-added
+      vi.mocked(prisma.roomMember.findFirst).mockResolvedValueOnce(null) // Admin not a member
+        .mockResolvedValueOnce(null) // Target user not a member
+      
+      vi.mocked(prisma.roomMember.create)
+        .mockResolvedValueOnce({
+          id: 'member-1',
+          userId: 'admin-1',
+          roomId: 'room-1',
+          role: RoomRole.MEMBER,
+        } as any) // Auto-add admin as member
+        .mockResolvedValueOnce({
+          id: 'member-2',
+          userId: 'clxxxxxxxxxxxxxxxxxxxxx2',
+          roomId: 'room-1',
+          role: RoomRole.MEMBER,
+          user: {
+            id: 'clxxxxxxxxxxxxxxxxxxxxx2',
+            name: 'Target User',
+            email: 'target@example.com',
+            image: null,
+          },
+        } as any) // Add target user
+
+      const request = new Request('http://localhost/api/chat/rooms/room-1/invite', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: 'clxxxxxxxxxxxxxxxxxxxxx2', // Valid CUID format
+          role: 'MEMBER',
+        }),
+      })
+
+      const response = await POST_INVITE(request, { params: Promise.resolve({ roomId: 'room-1' }) })
+      const data = await response.json()
+
+      expect(response.status).toBe(201)
+      expect(data.ok).toBe(true)
+      expect(data.code).toBe('INVITED')
+    })
+
+    it('should allow OWNER (non-admin) to invite user to public room', async () => {
+      const mockOwner = {
+        id: 'user-1',
+        email: 'owner@example.com',
+        role: 'USER' as const,
+      }
+
+      const targetUser = {
+        id: 'user-2',
+        name: 'Target User',
+        email: 'target@example.com',
+      }
+
+      vi.mocked(mockAuth).mockResolvedValue({ user: mockOwner })
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+        id: 'user-1',
+        role: 'USER',
+      } as any).mockResolvedValueOnce({
+        id: 'clxxxxxxxxxxxxxxxxxxxxx2',
+        name: 'Target User',
+        email: 'target@example.com',
+      } as any)
+      
+      vi.mocked(prisma.room.findUnique).mockResolvedValue({
+        id: 'room-1',
+        name: '#public',
+        title: 'Public Room',
+        type: RoomType.PUBLIC,
+        isPrivate: false,
+      } as any)
+      
+      // Owner is a member with OWNER role
+      vi.mocked(prisma.roomMember.findFirst).mockResolvedValueOnce({
+        id: 'member-1',
+        userId: 'user-1',
+        roomId: 'room-1',
+        role: RoomRole.OWNER,
+      } as any).mockResolvedValueOnce(null) // Target user not a member
+      
+      vi.mocked(prisma.roomMember.create).mockResolvedValue({
+        id: 'member-2',
+        userId: 'clxxxxxxxxxxxxxxxxxxxxx2',
+        roomId: 'room-1',
+        role: RoomRole.MEMBER,
+        user: {
+          id: 'clxxxxxxxxxxxxxxxxxxxxx2',
+          name: 'Target User',
+          email: 'target@example.com',
+          image: null,
+        },
       } as any)
 
       const request = new Request('http://localhost/api/chat/rooms/room-1/invite', {
@@ -623,9 +735,224 @@ describe('Room Operations Integration Tests', () => {
       const response = await POST_INVITE(request, { params: Promise.resolve({ roomId: 'room-1' }) })
       const data = await response.json()
 
+      expect(response.status).toBe(201)
+      expect(data.ok).toBe(true)
+      expect(data.code).toBe('INVITED')
+    })
+
+    it('should reject invite to public room from non-owner non-admin', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'member@example.com',
+        role: 'USER' as const,
+      }
+
+      vi.mocked(mockAuth).mockResolvedValue({ user: mockUser })
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+        id: 'user-1',
+        role: 'USER',
+      } as any)
+      
+      vi.mocked(prisma.room.findUnique).mockResolvedValue({
+        id: 'room-1',
+        name: '#public',
+        title: 'Public Room',
+        type: RoomType.PUBLIC,
+        isPrivate: false,
+      } as any)
+      
+      // User is a member but not OWNER/MODERATOR
+      vi.mocked(prisma.roomMember.findFirst).mockResolvedValue({
+        id: 'member-1',
+        userId: 'user-1',
+        roomId: 'room-1',
+        role: RoomRole.MEMBER,
+      } as any)
+
+      const request = new Request('http://localhost/api/chat/rooms/room-1/invite', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: 'clxxxxxxxxxxxxxxxxxxxxx2',
+          role: 'MEMBER',
+        }),
+      })
+
+      const response = await POST_INVITE(request, { params: Promise.resolve({ roomId: 'room-1' }) })
+      const data = await response.json()
+
       expect(response.status).toBe(403)
       expect(data.ok).toBe(false)
       expect(data.code).toBe('FORBIDDEN')
+    })
+  })
+
+  describe('PATCH /api/chat/rooms/[roomId] - Update Room Metadata', () => {
+    it('should allow ADMIN to edit any room (not just ones they created)', async () => {
+      const mockAdmin = {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        role: 'ADMIN' as const,
+      }
+
+      vi.mocked(mockAuth).mockResolvedValue({ user: mockAdmin })
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 'admin-1',
+        role: 'ADMIN',
+      } as any)
+      
+      const rbac = await import('@/lib/rbac')
+      // Admin is not a member (not the owner), but should still be able to edit
+      vi.mocked(rbac.getMembership).mockResolvedValue(null) // Not a member
+      
+      vi.mocked(prisma.room.findUnique).mockResolvedValueOnce({
+        id: 'room-1',
+        name: '#test',
+        title: 'Original Title',
+        description: 'Original description',
+        tags: ['tag1'],
+      } as any).mockResolvedValueOnce({
+        id: 'room-1',
+        name: '#test',
+        title: 'Updated Title',
+        description: 'Updated description',
+        tags: ['tag1', 'tag2'],
+        type: RoomType.PUBLIC,
+        isPrivate: false,
+      } as any)
+      
+      vi.mocked(prisma.room.update).mockResolvedValue({
+        id: 'room-1',
+        name: '#test',
+        title: 'Updated Title',
+        description: 'Updated description',
+        tags: ['tag1', 'tag2'],
+        type: RoomType.PUBLIC,
+        isPrivate: false,
+      } as any)
+
+      const { PATCH } = await import('@/app/api/chat/rooms/[roomId]/route')
+      const request = new Request('http://localhost/api/chat/rooms/room-1', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Updated Title',
+          description: 'Updated description',
+          tags: ['tag1', 'tag2'],
+        }),
+      })
+
+      const response = await PATCH(request, { params: Promise.resolve({ roomId: 'room-1' }) })
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.ok).toBe(true)
+      expect(data.data.room.title).toBe('Updated Title')
+    })
+
+    it('should allow OWNER to edit their room', async () => {
+      const mockOwner = {
+        id: 'user-1',
+        email: 'owner@example.com',
+        role: 'USER' as const,
+      }
+
+      vi.mocked(mockAuth).mockResolvedValue({ user: mockOwner })
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+      } as any)
+      
+      const rbac = await import('@/lib/rbac')
+      vi.mocked(rbac.getMembership).mockResolvedValue({
+        id: 'member-1',
+        userId: 'user-1',
+        roomId: 'room-1',
+        role: RoomRole.OWNER,
+      } as any)
+      
+      vi.mocked(prisma.room.findUnique).mockResolvedValueOnce({
+        id: 'room-1',
+        name: '#test',
+        title: 'Original Title',
+        description: 'Original description',
+        tags: ['tag1'],
+      } as any).mockResolvedValueOnce({
+        id: 'room-1',
+        name: '#test',
+        title: 'Updated Title',
+        description: 'Updated description',
+        tags: ['tag1', 'tag2'],
+        type: RoomType.PRIVATE,
+        isPrivate: true,
+      } as any)
+      
+      vi.mocked(prisma.room.update).mockResolvedValue({
+        id: 'room-1',
+        name: '#test',
+        title: 'Updated Title',
+        description: 'Updated description',
+        tags: ['tag1', 'tag2'],
+        type: RoomType.PRIVATE,
+        isPrivate: true,
+      } as any)
+
+      const { PATCH } = await import('@/app/api/chat/rooms/[roomId]/route')
+      const request = new Request('http://localhost/api/chat/rooms/room-1', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Updated Title',
+          description: 'Updated description',
+          tags: ['tag1', 'tag2'],
+        }),
+      })
+
+      const response = await PATCH(request, { params: Promise.resolve({ roomId: 'room-1' }) })
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.ok).toBe(true)
+      expect(data.data.room.title).toBe('Updated Title')
+    })
+
+    it('should reject edit from non-owner non-admin', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'member@example.com',
+        role: 'USER' as const,
+      }
+
+      vi.mocked(mockAuth).mockResolvedValue({ user: mockUser })
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: 'user-1',
+        role: 'USER',
+      } as any)
+      
+      const rbac = await import('@/lib/rbac')
+      // User is a member but not OWNER
+      vi.mocked(rbac.getMembership).mockResolvedValue({
+        id: 'member-1',
+        userId: 'user-1',
+        roomId: 'room-1',
+        role: RoomRole.MEMBER,
+      } as any)
+
+      const { PATCH } = await import('@/app/api/chat/rooms/[roomId]/route')
+      const request = new Request('http://localhost/api/chat/rooms/room-1', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Updated Title',
+        }),
+      })
+
+      const response = await PATCH(request, { params: Promise.resolve({ roomId: 'room-1' }) })
+      const data = await response.json()
+
+      expect(response.status).toBe(403)
+      expect(data.ok).toBe(false)
+      expect(data.code).toBe('FORBIDDEN')
+      expect(data.message).toContain('Only room owners or admins')
     })
   })
 
