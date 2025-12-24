@@ -337,13 +337,14 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
   const canEdit = roomDetails?.type !== 'DM' && roomDetails?.userRole === RoomRole.OWNER
   // DM rooms cannot have invites (only 2 members)
   // TICKET and PRIVATE rooms can have invites:
-  // - OWNER/MODERATOR can always invite
+  // - OWNER/MODERATOR can always invite (room creators are OWNER)
   // - ADMIN can invite to TICKET and PRIVATE rooms (even if not OWNER/MODERATOR)
+  // - Room creator (OWNER) can always invite to their PRIVATE rooms
   const canInvite = roomDetails?.type !== 'DM' && 
     (roomDetails?.type === 'PRIVATE' || roomDetails?.type === 'TICKET') && 
     (roomDetails?.userRole === RoomRole.OWNER || 
      roomDetails?.userRole === RoomRole.MODERATOR || 
-     (roomDetails?.isAdmin && (roomDetails?.type === 'PRIVATE' || roomDetails?.type === 'TICKET')))
+     roomDetails?.isAdmin)
   // Admins can assign issues even if not OWNER
   const canAssign = roomDetails?.type === 'TICKET' && (roomDetails?.userRole === RoomRole.OWNER || roomDetails?.isAdmin)
   // Admin can change ticket status
