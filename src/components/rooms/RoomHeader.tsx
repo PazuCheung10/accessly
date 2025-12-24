@@ -312,13 +312,17 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
     ? (cleanTitle(roomDetails?.title || '') || roomDetails?.name || roomName || 'Room')
     : (roomDetails?.title || roomDetails?.name || roomName || 'Room')
 
-  const visibilityBadge = roomDetails?.type === 'PUBLIC'
+  const visibilityBadge = !roomDetails?.type
+    ? null // Don't show badge while loading
+    : roomDetails.type === 'PUBLIC'
     ? { label: 'Public', color: 'bg-green-500/20 text-green-400 border-green-500/30' }
-    : roomDetails?.type === 'PRIVATE'
+    : roomDetails.type === 'PRIVATE'
     ? { label: 'Private', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' }
-    : roomDetails?.type === 'TICKET'
+    : roomDetails.type === 'TICKET'
     ? { label: 'Ticket', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' }
-    : { label: 'DM', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' }
+    : roomDetails.type === 'DM'
+    ? { label: 'DM', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' }
+    : null // Unknown type - don't show badge
 
   const statusBadge = roomDetails?.status === 'OPEN'
     ? { label: 'OPEN', color: 'bg-green-500/20 text-green-400 border-green-500/30' }
@@ -524,15 +528,19 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
                 {statusBadge.label}
               </span>
             ) : null}
-            <span className={`px-2 py-1 text-xs font-semibold rounded border ${visibilityBadge.color}`}>
-              {visibilityBadge.label}
-            </span>
+            {visibilityBadge && (
+              <span className={`px-2 py-1 text-xs font-semibold rounded border ${visibilityBadge.color}`}>
+                {visibilityBadge.label}
+              </span>
+            )}
           </>
         ) : (
           <>
-            <span className={`px-2 py-1 text-xs font-semibold rounded border ${visibilityBadge.color}`}>
-              {visibilityBadge.label}
-            </span>
+            {visibilityBadge && (
+              <span className={`px-2 py-1 text-xs font-semibold rounded border ${visibilityBadge.color}`}>
+                {visibilityBadge.label}
+              </span>
+            )}
           </>
         )}
         {roomDetails?.tags && roomDetails.tags.length > 0 && (
