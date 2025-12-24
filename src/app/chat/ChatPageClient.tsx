@@ -104,13 +104,13 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
     checkUserType()
   }, [status, session?.user?.id, session?.user?.role])
 
-  // Fetch tickets when tickets tab is active (for admins) or for external customers
+  // Fetch tickets when tickets/issues tab is active (for admins and non-admin users) or for external customers
   useEffect(() => {
     if (status !== 'authenticated') {
       return
     }
 
-    // For admins: fetch when tickets tab is active
+    // For admins: fetch all tickets when tickets tab is active
     if (session?.user?.role === 'ADMIN' && activeTab === 'tickets') {
       const fetchTickets = async () => {
         try {
@@ -129,6 +129,28 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
       }
 
       fetchTickets()
+      return
+    }
+
+    // For non-admin internal users: fetch their assigned tickets when issues tab is active
+    if (session?.user?.role !== 'ADMIN' && isExternalCustomer !== true && activeTab === 'tickets') {
+      const fetchMyTickets = async () => {
+        try {
+          setIsLoadingTickets(true)
+          const response = await fetch('/api/tickets/my-tickets')
+          const data = await response.json()
+          
+          if (data.ok && data.data?.tickets) {
+            setTickets(data.data.tickets)
+          }
+        } catch (err) {
+          console.error('Error fetching my tickets:', err)
+        } finally {
+          setIsLoadingTickets(false)
+        }
+      }
+
+      fetchMyTickets()
       return
     }
 
@@ -348,8 +370,8 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
           </div>
         </div>
 
-        {/* Tab Switcher - Only for admins (not external customers) */}
-        {session?.user?.role === 'ADMIN' && isExternalCustomer !== true && (
+        {/* Tab Switcher - For admins and non-admin internal users (not external customers) */}
+        {isExternalCustomer !== true && (
           <div className="p-4 border-b border-slate-800">
             <div className="flex gap-2">
               <button
@@ -370,7 +392,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                Tickets
+                {session?.user?.role === 'ADMIN' ? 'Tickets' : 'Issues'}
               </button>
             </div>
           </div>
@@ -564,7 +586,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
               )
             })()
           ) : (
-            // Tickets tab (admin only)
+            // Tickets/Issues tab (admin sees all tickets, non-admin sees assigned issues)
             (() => {
               const cleanTitle = (title: string | null) => {
                 if (!title) return ''
@@ -626,13 +648,17 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
               if (tickets.length === 0) {
                 return (
                   <div className="text-xs text-slate-500 p-4 text-center">
-                    <div>No tickets found</div>
-                    <Link
-                      href="/tickets"
-                      className="mt-2 inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded text-sm transition-colors"
-                    >
-                      View All Tickets
-                    </Link>
+                    <div>{session?.user?.role === 'ADMIN' ? 'No tickets found' : 'No issues assigned to you'}</div>
+                    {session?.user?.role === 'ADMIN' ? (
+                      <Link
+                        href="/tickets"
+                        className="mt-2 inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded text-sm transition-colors"
+                      >
+                        View All Tickets
+                      </Link>
+                    ) : (
+                      <p className="mt-2 text-xs text-slate-600">Issues will appear here once you're assigned to them</p>
+                    )}
                   </div>
                 )
               }
