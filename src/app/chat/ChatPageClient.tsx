@@ -577,8 +577,17 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
             })()
           ) : activeTab === 'rooms' ? (
             (() => {
+              // Helper function to clean room titles (remove prefixes like [TICKET][Department])
+              const cleanTitle = (title: string | null | undefined, name: string | null | undefined, type?: string) => {
+                if (!title && !name) return type === 'TICKET' ? 'Ticket' : 'General'
+                const titleToClean = title || name || ''
+                // Remove [TICKET][Department] or [Department] prefixes
+                const cleaned = titleToClean.replace(/^\[TICKET\]\[[^\]]+\]\s*/, '').replace(/^\[TICKET\]\s*/, '').replace(/^\[[^\]]+\]\s*/, '').trim()
+                return cleaned || (type === 'TICKET' ? 'Ticket' : 'General')
+              }
+
               // Show PUBLIC, PRIVATE, and TICKET rooms (TICKET rooms where user is assigned)
-              const teamRooms = myRooms.filter((r) => r.type === 'PUBLIC' || r.type === 'PRIVATE')
+              const teamRooms = myRooms.filter((r) => r.type === 'PUBLIC' || r.type === 'PRIVATE' || r.type === 'TICKET')
               
               if (teamRooms.length === 0) {
                 return (
@@ -596,38 +605,41 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
               
               return (
                 <div className="space-y-1">
-                  {teamRooms.map((room) => (
-                    <button
-                      key={room.id}
-                      onClick={() => {
-                        if (roomId !== room.id) {
-                          setRoomName(room.name || room.title || 'General')
-                          setRoomId(room.id)
-                          // Switch to tickets tab if it's a ticket
-                          if (room.type === 'TICKET') {
-                            setActiveTab('tickets')
+                  {teamRooms.map((room) => {
+                    const displayTitle = cleanTitle(room.title, room.name, room.type)
+                    return (
+                      <button
+                        key={room.id}
+                        onClick={() => {
+                          if (roomId !== room.id) {
+                            setRoomName(displayTitle)
+                            setRoomId(room.id)
+                            // Switch to tickets tab if it's a ticket
+                            if (room.type === 'TICKET') {
+                              setActiveTab('tickets')
+                            }
+                            // Update URL (remove view param since we only have one view now)
+                            const params = new URLSearchParams(window.location.search)
+                            params.set('room', room.id)
+                            params.delete('view') // Remove view param
+                            router.push(`/chat?${params.toString()}`, { scroll: false })
                           }
-                          // Update URL (remove view param since we only have one view now)
-                          const params = new URLSearchParams(window.location.search)
-                          params.set('room', room.id)
-                          params.delete('view') // Remove view param
-                          router.push(`/chat?${params.toString()}`, { scroll: false })
-                        }
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
-                        roomId === room.id
-                          ? 'bg-cyan-600 text-white'
-                          : 'bg-slate-800 hover:bg-slate-700'
-                      }`}
-                    >
-                      <span className="truncate">{room.name || room.title}</span>
-                      {room._count && (
-                        <span className="text-xs opacity-70 ml-2 flex-shrink-0">
-                          {room._count.messages || 0}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center justify-between ${
+                          roomId === room.id
+                            ? 'bg-cyan-600 text-white'
+                            : 'bg-slate-800 hover:bg-slate-700'
+                        }`}
+                      >
+                        <span className="truncate">{displayTitle}</span>
+                        {room._count && (
+                          <span className="text-xs opacity-70 ml-2 flex-shrink-0">
+                            {room._count.messages || 0}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               )
             })()
