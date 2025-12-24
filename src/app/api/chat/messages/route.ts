@@ -130,6 +130,10 @@ async function GETHandler(request: Request) {
     const isAdmin = dbUser.role === Role.ADMIN
     const hasMembership = !!membership
 
+    // Check if user is external customer
+    const { isExternalCustomer } = await import('@/lib/user-utils')
+    const userIsExternal = await isExternalCustomer(dbUser.id)
+
     // Access control: Mirror the logic from /api/chat/rooms/[roomId]
     // PRIVATE rooms: must have membership
     if (room.type === 'PRIVATE' && !hasMembership) {
@@ -140,16 +144,52 @@ async function GETHandler(request: Request) {
       }, { status: 200 }) // messages.test.ts expects 200 even on errors
     }
 
-    // TICKET rooms: must have membership OR be ADMIN
-    if (isTicketRoom && !hasMembership && !isAdmin) {
-      return Response.json({
-        ok: false,
-        code: 'FORBIDDEN',
-        message: 'Not a member of this ticket',
-      }, { status: 200 }) // messages.test.ts expects 200 even on errors
+    // TICKET rooms: 
+    // - External customers: must be a member (no admin override)
+    // - Internal users/admins: must be a member OR be an ADMIN
+    if (isTicketRoom) {
+      if (userIsExternal) {
+        // External customers can only access their own tickets
+        if (!hasMembership) {
+          return Response.json({
+            ok: false,
+            code: 'FORBIDDEN',
+            message: 'Not a member of this ticket',
+          }, { status: 200 }) // messages.test.ts expects 200 even on errors
+        }
+      } else {
+        // Internal users/admins: must be a member OR be an ADMIN
+        if (!hasMembership && !isAdmin) {
+          return Response.json({
+            ok: false,
+            code: 'FORBIDDEN',
+            message: 'Not a member of this ticket',
+          }, { status: 200 }) // messages.test.ts expects 200 even on errors
+        }
+      }
     }
 
-    // PUBLIC / DM / TICKET+ADMIN fall through and are allowed
+    // PUBLIC rooms: block external customers
+    if (room.type === 'PUBLIC') {
+      if (userIsExternal) {
+        return Response.json({
+          ok: false,
+          code: 'FORBIDDEN',
+          message: 'External customers cannot access internal rooms',
+        }, { status: 200 }) // messages.test.ts expects 200 even on errors
+      }
+      
+      // Non-admin internal users: must match department or be PUBLIC_GLOBAL
+      if (!isAdmin && room.department !== null && room.department !== dbUser.department) {
+        return Response.json({
+          ok: false,
+          code: 'FORBIDDEN',
+          message: 'You do not have access to rooms from other departments',
+        }, { status: 200 }) // messages.test.ts expects 200 even on errors
+      }
+    }
+
+    // DM / TICKET+ADMIN / PUBLIC+ADMIN fall through and are allowed
 
     // FINAL PRISMA QUERY FOR MESSAGES:
     // For admin+ticket case: filters ONLY by roomId and deletedAt

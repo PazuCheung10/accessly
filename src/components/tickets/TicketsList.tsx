@@ -37,11 +37,24 @@ interface Ticket {
   messageCount: number
 }
 
-export function TicketsList() {
+interface TicketsListProps {
+  showCreateButton?: boolean
+}
+
+export function TicketsList({ showCreateButton = false }: TicketsListProps) {
   const router = useRouter()
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<'OPEN' | 'WAITING' | 'RESOLVED' | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    department: 'GENERAL' as 'IT_SUPPORT' | 'BILLING' | 'PRODUCT' | 'GENERAL' | '',
+    assignToUserId: '' as string | '',
+  })
 
   useEffect(() => {
     fetchTickets()
@@ -64,6 +77,54 @@ export function TicketsList() {
       console.error('Error fetching tickets:', err)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleCreateIssue = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCreateError(null)
+    setIsCreating(true)
+
+    try {
+      const response = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          department: formData.department || null,
+          assignToUserId: formData.assignToUserId || null,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || 'Failed to create issue')
+      }
+
+      // Reset form and close modal
+      setFormData({
+        title: '',
+        description: '',
+        department: 'GENERAL',
+        assignToUserId: '',
+      })
+      setShowCreateModal(false)
+      
+      // Refresh tickets list
+      await fetchTickets()
+      
+      // Navigate to the new issue
+      if (data.data?.ticketId) {
+        router.push(`/chat?room=${data.data.ticketId}`)
+      }
+    } catch (err: any) {
+      setCreateError(err.message || 'Failed to create issue')
+    } finally {
+      setIsCreating(false)
     }
   }
 
@@ -127,6 +188,126 @@ export function TicketsList() {
 
   return (
     <div>
+      {/* Create Issue Button */}
+      {showCreateButton && (
+        <div className="mb-6 flex justify-end">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors font-medium"
+          >
+            + Create New Issue
+          </button>
+        </div>
+      )}
+
+      {/* Create Issue Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Create New Issue</h2>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false)
+                  setCreateError(null)
+                  setFormData({
+                    title: '',
+                    description: '',
+                    department: 'GENERAL',
+                    assignToUserId: '',
+                  })
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateIssue} className="space-y-4">
+              {createError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
+                  {createError}
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="title" className="block text-sm font-medium mb-2 text-slate-300">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  id="title"
+                  required
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="Brief description of the issue"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="description" className="block text-sm font-medium mb-2 text-slate-300">
+                  Description *
+                </label>
+                <textarea
+                  id="description"
+                  required
+                  rows={4}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
+                  placeholder="Detailed description of the issue..."
+                />
+              </div>
+
+              <div>
+                <label htmlFor="department" className="block text-sm font-medium mb-2 text-slate-300">
+                  Department (Optional)
+                </label>
+                <select
+                  id="department"
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value as any })}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                >
+                  <option value="">None</option>
+                  <option value="IT_SUPPORT">IT Support</option>
+                  <option value="BILLING">Billing</option>
+                  <option value="PRODUCT">Product</option>
+                  <option value="GENERAL">General</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateModal(false)
+                    setCreateError(null)
+                    setFormData({
+                      title: '',
+                      description: '',
+                      department: 'GENERAL',
+                      assignToUserId: '',
+                    })
+                  }}
+                  className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreating || !formData.title.trim() || !formData.description.trim()}
+                  className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg transition-colors"
+                >
+                  {isCreating ? 'Creating...' : 'Create Issue'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Status Filter */}
       <div className="mb-6 flex gap-2">
         <button

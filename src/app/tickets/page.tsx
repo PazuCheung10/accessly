@@ -35,7 +35,7 @@ export default async function TicketsPage() {
           </div>
         </div>
 
-        <TicketsList />
+        <TicketsList showCreateButton={true} />
       </div>
     </div>
   )

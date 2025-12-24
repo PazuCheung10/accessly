@@ -3,6 +3,7 @@ import { HomePageClient } from '@/components/rooms/HomePageClient'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { RoomType } from '@prisma/client'
+import { isExternalCustomer } from '@/lib/user-utils'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -27,6 +28,21 @@ export default async function Home({
 
   if (!dbUser) {
     redirect('/sign-in?callbackUrl=/')
+  }
+
+  // Block external customers from accessing internal rooms
+  const userIsExternal = await isExternalCustomer(dbUser.id)
+  if (userIsExternal) {
+    // External customers should not see internal rooms
+    // Redirect them or show empty state
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Restricted</h1>
+          <p className="text-slate-400">External customers cannot access internal collaboration rooms.</p>
+        </div>
+      </div>
+    )
   }
 
   const params = await searchParams

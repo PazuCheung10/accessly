@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { isExternalCustomer } from '@/lib/user-utils'
 import { RoomType } from '@prisma/client'
 
 export const runtime = 'nodejs'
@@ -75,6 +76,16 @@ export async function POST(
         code: 'ROOM_NOT_FOUND',
         message: 'Room not found',
       }, { status: 404 })
+    }
+
+    // Block external customers from joining any rooms
+    const userIsExternal = await isExternalCustomer(userId)
+    if (userIsExternal) {
+      return Response.json({
+        ok: false,
+        code: 'FORBIDDEN',
+        message: 'External customers cannot join internal rooms',
+      }, { status: 403 })
     }
 
     // Only allow joining public rooms

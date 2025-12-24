@@ -272,21 +272,7 @@ async function main() {
       department: Department.GENERAL, // Member
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=chris',
     },
-    // External customers (no department, no internal room access)
-    {
-      email: 'customer@example.com',
-      name: 'John Customer',
-      role: Role.USER,
-      department: null, // External customer - no department
-      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=customer',
-    },
-    {
-      email: 'user@example.com',
-      name: 'Jane User',
-      role: Role.USER,
-      department: null, // External customer - no department
-      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user',
-    },
+    // External customers removed - internal-only system
   ]
 
   // Validate: All emails must be unique
@@ -308,9 +294,9 @@ async function main() {
     console.log(`   ✅ Created ${userData.role} user: ${userData.email}${userData.department ? ` (${userData.department})` : ''}`)
   }
 
-  const [admin1, admin2, user1, user2, user3, user4, user5, user6, user7, user8, user9, user10, user11, user12, customer1, customer2] = createdUsers
+  const [admin1, admin2, user1, user2, user3, user4, user5, user6, user7, user8, user9, user10, user11, user12] = createdUsers
   // Department heads: user1 (ENGINEERING), user4 (BILLING), user7 (PRODUCT), user10 (GENERAL)
-  // External customers: customer1, customer2 (no department, no internal room access)
+  // External customers removed - internal-only system
   console.log(`✅ All ${createdUsers.length} users created`)
   console.log('   Password for all users: demo123\n')
 
@@ -650,51 +636,8 @@ async function main() {
   }
   console.log(`   ✅ ${ticketRooms.length} ticket room members added`)
 
-  // Create tickets for external customers (so they have something to see)
-  const customerTicket1 = await prisma.room.create({
-    data: {
-      name: 'ticket-customer-account',
-      title: '[TICKET][Account] Cannot access my account',
-      description: 'I cannot log into my account after password reset',
-      type: RoomType.TICKET,
-      isPrivate: true,
-      status: TicketStatus.OPEN,
-      ticketDepartment: TicketDepartment.IT_SUPPORT,
-      creatorId: customer1.id,
-      tags: ['ticket', 'account', 'access'],
-    } as any,
-  })
-
-  const customerTicket2 = await prisma.room.create({
-    data: {
-      name: 'ticket-customer-payment',
-      title: '[TICKET][Billing] Payment method not working',
-      description: 'My credit card is being declined when trying to update payment',
-      type: RoomType.TICKET,
-      isPrivate: true,
-      status: TicketStatus.WAITING,
-      ticketDepartment: TicketDepartment.BILLING,
-      creatorId: customer2.id,
-      tags: ['ticket', 'payment', 'billing'],
-    } as any,
-  })
-
-  // Add external customers to their tickets
-  await prisma.roomMember.create({
-    data: { userId: customer1.id, roomId: customerTicket1.id, role: RoomRole.MEMBER },
-  })
-  await prisma.roomMember.create({
-    data: { userId: admin1.id, roomId: customerTicket1.id, role: RoomRole.OWNER },
-  })
-
-  await prisma.roomMember.create({
-    data: { userId: customer2.id, roomId: customerTicket2.id, role: RoomRole.MEMBER },
-  })
-  await prisma.roomMember.create({
-    data: { userId: admin2.id, roomId: customerTicket2.id, role: RoomRole.OWNER },
-  })
-
-  console.log(`   ✅ Created 2 tickets for external customers\n`)
+  // External customer tickets removed - internal-only system
+  console.log(`   ✅ External customer tickets removed (internal-only system)\n`)
 
   // ============================================
   // STEP 4: Create Messages
@@ -799,8 +742,9 @@ async function main() {
   console.log(`   ✅ Generated ${ticketRooms.length} ticket messages with replies`)
 
   // Add messages to customer tickets (so they have content to display)
-  // Customer ticket 1: customer1's account issue
-  const customer1MainMessage = await prisma.message.create({
+  // External customer ticket messages removed - internal-only system
+  // Customer ticket 1: customer1's account issue (REMOVED)
+  /* const customer1MainMessage = await prisma.message.create({
     data: {
       roomId: customerTicket1.id,
       userId: customer1.id,
@@ -830,8 +774,8 @@ async function main() {
   })
   console.log(`   ✅ Generated 3 messages for customer ticket 1 (account issue)`)
 
-  // Customer ticket 2: customer2's payment issue
-  const customer2MainMessage = await prisma.message.create({
+  // Customer ticket 2: customer2's payment issue (REMOVED)
+  /* const customer2MainMessage = await prisma.message.create({
     data: {
       roomId: customerTicket2.id,
       userId: customer2.id,
@@ -849,9 +793,9 @@ async function main() {
       createdAt: randomPastWeekDate(),
     },
   })
-  console.log(`   ✅ Generated 2 messages for customer ticket 2 (payment issue)`)
+  console.log(`   ✅ Generated 2 messages for customer ticket 2 (payment issue)`) */
 
-  const totalMessages = 15 + 12 + 10 + 8 + ticketRooms.length + (3 + 2 + 2 + 2) + 3 + 2 // = 15+12+10+8+4+9+5 = 63 messages
+  const totalMessages = 15 + 12 + 10 + 8 + ticketRooms.length + (2 + 2 + 2) + 3 + 2 // = 15+12+10+8+4+7+5 = 61 messages (customer tickets removed)
   console.log(`\n   📊 Total messages: ${totalMessages} (within 50-120 range)`)
 
   // ============================================
@@ -879,8 +823,9 @@ async function main() {
     console.log(`   ✅ ${user.email}: ${userMemberships} room memberships`)
   }
 
-  // Verify external customers only have ticket memberships
-  const externalCustomers = [customer1, customer2]
+  // External customer verification removed - internal-only system
+  // Verification skipped for external customers (removed from seed data)
+  const externalCustomers: any[] = []
   for (const customer of externalCustomers) {
     const ticketMemberships = await prisma.roomMember.count({
       where: {
@@ -988,7 +933,7 @@ async function main() {
   console.log('   BILLING: may@solace.com (head), lisa@solace.com, tom@solace.com')
   console.log('   PRODUCT: ethan@solace.com (head), sarah@solace.com, david@solace.com')
   console.log('   GENERAL: mike@solace.com (head), emma@solace.com, chris@solace.com')
-  console.log('   External Customers: customer@example.com, user@example.com')
+  console.log('   External Customers: Removed (internal-only system)')
   console.log('   Password for all: demo123')
   console.log('\n🎉 You can now sign in with any account and see the chat history!')
   console.log('\n💡 Next steps:')
