@@ -226,9 +226,8 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
           alert(data.message || 'Failed to assign ticket')
         }
       } else {
-        // For PRIVATE rooms, use invite endpoint with MODERATOR role
+        // For PUBLIC/PRIVATE rooms, use invite endpoint with MODERATOR role
         // MODERATOR gives management capabilities similar to ticket assignment
-        // Note: PUBLIC rooms are excluded (they use join, not invite/assign)
         const response = await fetch(`/api/chat/rooms/${roomId}/invite`, {
           method: 'POST',
           headers: {
@@ -365,21 +364,19 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
   const canEdit = roomDetails?.type !== 'DM' && 
     (roomDetails?.userRole === RoomRole.OWNER || roomDetails?.isAdmin || session?.user?.role === 'ADMIN')
   // DM rooms cannot have invites (only 2 members)
-  // TICKET and PRIVATE rooms can have invites:
+  // All other rooms (PUBLIC, PRIVATE, TICKET) can have invites:
   // - OWNER/MODERATOR can always invite (room creators are OWNER)
-  // - ADMIN can invite to TICKET and PRIVATE rooms (even if not OWNER/MODERATOR)
-  // - Room creator (OWNER) can always invite to their PRIVATE rooms
+  // - ADMIN can invite to any room (even if not OWNER/MODERATOR)
+  // - Room creator (OWNER) can always invite to their rooms
   const canInvite = roomDetails?.type !== 'DM' && 
-    (roomDetails?.type === 'PRIVATE' || roomDetails?.type === 'TICKET') && 
     (roomDetails?.userRole === RoomRole.OWNER || 
      roomDetails?.userRole === RoomRole.MODERATOR || 
-     roomDetails?.isAdmin)
-  // Admins can assign issues even if not OWNER
+     roomDetails?.isAdmin || 
+     session?.user?.role === 'ADMIN')
+  // Same logic as ticket rooms: admins and room creators can assign
   // For TICKET rooms: use ticket assign endpoint
-  // For PRIVATE rooms: use invite endpoint with MODERATOR role
-  // PUBLIC rooms are excluded (they use join, not invite/assign)
+  // For PUBLIC/PRIVATE rooms: use invite endpoint with MODERATOR role
   const canAssign = roomDetails?.type !== 'DM' && 
-    (roomDetails?.type === 'TICKET' || roomDetails?.type === 'PRIVATE') &&
     (roomDetails?.userRole === RoomRole.OWNER || roomDetails?.isAdmin || session?.user?.role === 'ADMIN')
   // Admin can change ticket status
   const canChangeStatus = roomDetails?.type === 'TICKET' && (roomDetails?.isAdmin || session?.user?.role === 'ADMIN')

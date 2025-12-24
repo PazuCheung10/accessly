@@ -13,7 +13,8 @@ const InviteInput = z.object({
 
 /**
  * POST /api/chat/rooms/[roomId]/invite
- * Creator/moderator can add user to private room or ticket room
+ * Creator/moderator can add user to any room (PUBLIC, PRIVATE, TICKET)
+ * Admins can invite to any room regardless of membership
  */
 export async function POST(
   request: Request,
@@ -49,16 +50,6 @@ export async function POST(
         code: 'ROOM_NOT_FOUND',
         message: 'Room not found',
       }, { status: 404 })
-    }
-
-    // Public room → 403 FORBIDDEN (test expects this)
-    // Allow PRIVATE and TICKET rooms (both are invite-only)
-    if (room.type === RoomType.PUBLIC) {
-      return Response.json({
-        ok: false,
-        code: 'FORBIDDEN',
-        message: 'Can only invite users to private rooms or tickets. Public rooms can be joined directly.',
-      }, { status: 403 })
     }
 
     const body = await request.json()
@@ -97,12 +88,8 @@ export async function POST(
       },
     })
 
-    // For TICKET and PRIVATE rooms: admins can invite even without membership
-    // For PUBLIC rooms: must be a member (public rooms use join, not invite)
-    const isInviteableRoom = room.type === RoomType.TICKET || room.type === RoomType.PRIVATE
-    
-    // ADMINS HAVE ABSOLUTE POWER: They can invite to any inviteable room regardless of membership
-    if (isAdmin && isInviteableRoom) {
+    // ADMINS HAVE ABSOLUTE POWER: They can invite to any room (PUBLIC, PRIVATE, TICKET) regardless of membership
+    if (isAdmin) {
       // Admin can always invite - no need to check membership
       // Auto-add them as MEMBER if not already a member (for consistency)
       if (!inviterMembership) {
