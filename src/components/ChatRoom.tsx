@@ -303,7 +303,8 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
         void fetchInitial()
       } else {
         // Recent messages, just fetch newer ones
-        void fetchNewerAfter()
+        // Pass a flag to indicate this is an initial entry (should scroll to bottom)
+        void fetchNewerAfter(true)
       }
       return
     }
@@ -540,7 +541,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   }
 
   // 4.7 Incremental fetch for *newer* messages after what we have (optional on enter)
-  const fetchNewerAfter = async () => {
+  const fetchNewerAfter = async (isInitialEntry = false) => {
     const lastId =
       useChatStore.getState().rooms[roomId]?.lastMessageId ??
       room?.lastMessageId ??
@@ -561,11 +562,22 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
 
       upsertMessages(roomId, newer)
 
-      // If user was at bottom, keep them at bottom
+      // If this is an initial entry (user just entered the room), always scroll to bottom
+      // Otherwise, only scroll if user was already at bottom
       const el = messagesContainerRef.current
-      if (el && isNearBottom(el, 100)) {
-        scrollToBottom(el)
-        setRoom(roomId, { scrollTop: el.scrollTop })
+      if (el) {
+        if (isInitialEntry || isNearBottom(el, 100)) {
+          // Wait for DOM to update, then scroll to bottom
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              const elAfterUpdate = messagesContainerRef.current
+              if (elAfterUpdate) {
+                elAfterUpdate.scrollTop = elAfterUpdate.scrollHeight
+                setRoom(roomId, { scrollTop: elAfterUpdate.scrollTop })
+              }
+            })
+          })
+        }
       }
     } catch (err) {
       console.error('Error fetching newer messages:', err)
