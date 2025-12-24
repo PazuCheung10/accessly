@@ -23,6 +23,7 @@ interface RoomDetails {
   isPrivate: boolean
   userRole: RoomRole | null
   isMember: boolean
+  isAdmin?: boolean
   creator: {
     id: string
     name: string | null
@@ -334,11 +335,17 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
 
   const canEdit = roomDetails?.type !== 'DM' && roomDetails?.userRole === RoomRole.OWNER
   // DM rooms cannot have invites (only 2 members)
-  // TICKET and PRIVATE rooms can have invites (OWNER/MODERATOR only)
-  const canInvite = roomDetails?.type !== 'DM' && (roomDetails?.type === 'PRIVATE' || roomDetails?.type === 'TICKET') && (roomDetails?.userRole === RoomRole.OWNER || roomDetails?.userRole === RoomRole.MODERATOR)
+  // TICKET and PRIVATE rooms can have invites:
+  // - OWNER/MODERATOR can always invite
+  // - ADMIN can invite to TICKET and PRIVATE rooms (even if not OWNER/MODERATOR)
+  const canInvite = roomDetails?.type !== 'DM' && 
+    (roomDetails?.type === 'PRIVATE' || roomDetails?.type === 'TICKET') && 
+    (roomDetails?.userRole === RoomRole.OWNER || 
+     roomDetails?.userRole === RoomRole.MODERATOR || 
+     (roomDetails?.isAdmin && (roomDetails?.type === 'PRIVATE' || roomDetails?.type === 'TICKET')))
   const canAssign = roomDetails?.type === 'TICKET' && roomDetails?.userRole === RoomRole.OWNER
   // Admin can change ticket status
-  const canChangeStatus = roomDetails?.type === 'TICKET' && session?.user?.role === 'ADMIN'
+  const canChangeStatus = roomDetails?.type === 'TICKET' && (roomDetails?.isAdmin || session?.user?.role === 'ADMIN')
 
   const getDepartmentLabel = (department: string | null) => {
     if (!department) return 'General'

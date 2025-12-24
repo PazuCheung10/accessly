@@ -49,8 +49,26 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   const [isRestoringScroll, setIsRestoringScroll] = useState(false)
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map()) // userId -> userName
 
-  // Use session user ID directly (removed /api/debug/session fetch to avoid test conflicts)
-  const currentUserId = session?.user?.id ?? null
+  // Get current user ID - need to fetch from DB to match message user IDs
+  const [currentUserId, setCurrentUserId] = useState<string | null>(session?.user?.id ?? null)
+  
+  useEffect(() => {
+    if (session?.user?.email) {
+      // Fetch DB user ID to match message user IDs
+      fetch('/api/debug/session')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.ok && data.dbUser?.id) {
+            setCurrentUserId(data.dbUser.id)
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch current user ID:', err)
+          // Fallback to session ID if fetch fails
+          setCurrentUserId(session?.user?.id ?? null)
+        })
+    }
+  }, [session?.user?.email, session?.user?.id])
   
   // Typing indicator debounce
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)

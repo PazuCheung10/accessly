@@ -243,6 +243,7 @@ export async function GET(
           ...room,
           userRole: membership?.role || null,
           isMember: effectiveIsMember,
+          isAdmin: isAdmin, // Include admin status for UI decisions
           owner: room.members[0]?.user || null,
           lastResponder,
           averageResponseTime,

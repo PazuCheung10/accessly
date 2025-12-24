@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { RoomRole, RoomType } from '@prisma/client'
+import { RoomRole, RoomType, Role } from '@prisma/client'
 import { z } from 'zod'
 
 export const runtime = 'nodejs'
@@ -74,6 +74,22 @@ export async function POST(
       }, { status: 400 })
     }
 
+    // Get inviter's user info to check if admin
+    const inviterUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, role: true },
+    })
+
+    if (!inviterUser) {
+      return Response.json({
+        ok: false,
+        code: 'USER_NOT_FOUND',
+        message: 'Inviter user not found',
+      }, { status: 404 })
+    }
+
+    const isAdmin = inviterUser.role === Role.ADMIN
+
     const inviterMembership = await prisma.roomMember.findFirst({
       where: {
         roomId,
@@ -81,22 +97,42 @@ export async function POST(
       },
     })
 
-    // Not a member → 403 NOT_MEMBER
-    if (!inviterMembership) {
-      return Response.json({
-        ok: false,
-        code: 'NOT_MEMBER',
-        message: 'Not a member of this room',
-      }, { status: 403 })
-    }
+    // For TICKET and PRIVATE rooms: admins can invite even without membership
+    // For PUBLIC rooms: must be a member (public rooms use join, not invite)
+    const isInviteableRoom = room.type === RoomType.TICKET || room.type === RoomType.PRIVATE
+    
+    // ADMINS HAVE ABSOLUTE POWER: They can invite to any inviteable room regardless of membership
+    if (isAdmin && isInviteableRoom) {
+      // Admin can always invite - no need to check membership
+      // Auto-add them as MEMBER if not already a member (for consistency)
+      if (!inviterMembership) {
+        await prisma.roomMember.create({
+          data: {
+            userId: session.user.id,
+            roomId,
+            role: RoomRole.MEMBER,
+          },
+        })
+      }
+      // Skip all permission checks - admin has absolute power
+    } else {
+      // Non-admins: must be a member
+      if (!inviterMembership) {
+        return Response.json({
+          ok: false,
+          code: 'NOT_MEMBER',
+          message: 'Not a member of this room',
+        }, { status: 403 })
+      }
 
-    // MEMBER cannot invite → 403 FORBIDDEN
-    if (inviterMembership.role === RoomRole.MEMBER) {
-      return Response.json({
-        ok: false,
-        code: 'FORBIDDEN',
-        message: 'Only room creators and moderators can invite users',
-      }, { status: 403 })
+      // Non-admins: must be OWNER or MODERATOR to invite
+      if (inviterMembership.role === RoomRole.MEMBER) {
+        return Response.json({
+          ok: false,
+          code: 'FORBIDDEN',
+          message: 'Only room creators and moderators can invite users',
+        }, { status: 403 })
+      }
     }
 
     // OWNER or MODERATOR continue...

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { checkMessageRate, RateLimitedError } from '@/lib/rateLimit'
 import { MessageInput } from '@/lib/validation'
 import { logger } from '@/lib/logger'
+import { Role, RoomType } from '@prisma/client'
 
 export type MessageCoreResponse =
   | { status: number; body: { ok: true; data: any } }
@@ -41,10 +42,10 @@ export async function handlePostMessageCore(req: Request): Promise<MessageCoreRe
 
   const { roomId, content, parentMessageId } = validated.data
 
-  // Verify the user exists in DB and get their actual ID
+  // Verify the user exists in DB and get their actual ID and role
   const dbUser = await prisma.user.findUnique({
     where: { email: session.user.email || '' },
-    select: { id: true, email: true },
+    select: { id: true, email: true, role: true },
   })
 
   if (!dbUser) {
@@ -55,6 +56,7 @@ export async function handlePostMessageCore(req: Request): Promise<MessageCoreRe
   }
 
   const userId = dbUser.id
+  const isAdmin = dbUser.role === Role.ADMIN
 
   // Message rate limiting
   try {
@@ -74,6 +76,19 @@ export async function handlePostMessageCore(req: Request): Promise<MessageCoreRe
     throw err
   }
 
+  // Check room type
+  const room = await prisma.room.findUnique({
+    where: { id: roomId },
+    select: { type: true },
+  })
+
+  if (!room) {
+    return {
+      status: 404,
+      body: { ok: false, code: 'ROOM_NOT_FOUND', message: 'Room not found' },
+    }
+  }
+
   // Check if user is member of the room
   const membership = await prisma.roomMember.findUnique({
     where: {
@@ -84,7 +99,9 @@ export async function handlePostMessageCore(req: Request): Promise<MessageCoreRe
     },
   })
 
-  if (!membership) {
+  // For TICKET rooms: admins can send messages even without membership
+  // For other rooms: must be a member
+  if (!membership && !(isAdmin && room.type === RoomType.TICKET)) {
     return {
       status: 403,
       body: {
@@ -93,6 +110,17 @@ export async function handlePostMessageCore(req: Request): Promise<MessageCoreRe
         message: 'Not a member of this room',
       },
     }
+  }
+
+  // If admin is not a member of a TICKET room, auto-add them as MEMBER
+  if (!membership && isAdmin && room.type === RoomType.TICKET) {
+    await prisma.roomMember.create({
+      data: {
+        userId: userId,
+        roomId: roomId,
+        role: 'MEMBER',
+      },
+    })
   }
 
   // Create message
