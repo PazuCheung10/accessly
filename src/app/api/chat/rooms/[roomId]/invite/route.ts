@@ -13,7 +13,7 @@ const InviteInput = z.object({
 
 /**
  * POST /api/chat/rooms/[roomId]/invite
- * Creator/moderator can add user to private room
+ * Creator/moderator can add user to private room or ticket room
  */
 export async function POST(
   request: Request,
@@ -52,11 +52,12 @@ export async function POST(
     }
 
     // Public room → 403 FORBIDDEN (test expects this)
-    if (!room.isPrivate || room.type !== RoomType.PRIVATE) {
+    // Allow PRIVATE and TICKET rooms (both are invite-only)
+    if (room.type === RoomType.PUBLIC) {
       return Response.json({
         ok: false,
         code: 'FORBIDDEN',
-        message: 'Can only invite users to private rooms. Public rooms can be joined directly.',
+        message: 'Can only invite users to private rooms or tickets. Public rooms can be joined directly.',
       }, { status: 403 })
     }
 

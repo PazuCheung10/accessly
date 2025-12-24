@@ -161,12 +161,12 @@ export async function GET(request: Request) {
       })
     }
 
-    // Internal users: Fetch PUBLIC and PRIVATE rooms (TICKET rooms excluded - they use tickets tab)
+    // Internal users: Fetch PUBLIC, PRIVATE, and TICKET rooms (TICKET rooms only if user is assigned/member)
     const memberships = await prisma.roomMember.findMany({
       where: {
         userId: userId, // Use DB user ID, not session user ID
         room: {
-          type: { in: ['PUBLIC', 'PRIVATE'] }, // Only PUBLIC and PRIVATE for internal users
+          type: { in: ['PUBLIC', 'PRIVATE', 'TICKET'] }, // Include TICKET rooms for assigned users
         },
       },
       include: {
@@ -230,12 +230,11 @@ export async function GET(request: Request) {
         lastMessage: m.room.messages[0] || null,
         otherUser: null,
       }))
-      // Filter: PRIVATE rooms only if user is a member (already handled by query)
+      // Filter: PRIVATE and TICKET rooms only if user is a member (already handled by query)
       // PUBLIC rooms: filter by department rules below
-      // Note: TICKET rooms are already excluded from query for internal users
       .filter((r) => {
-        if (r.type === 'PRIVATE') {
-          // PRIVATE rooms: only if user is a member (already in memberships)
+        if (r.type === 'PRIVATE' || r.type === 'TICKET') {
+          // PRIVATE and TICKET rooms: only if user is a member (already in memberships)
           return true
         }
         if (r.type === 'PUBLIC') {

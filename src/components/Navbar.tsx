@@ -156,6 +156,14 @@ export function Navbar() {
               </Link>
             )}
 
+            {/* My Issues Link - visible to all authenticated users */}
+            <Link
+              href="/issues"
+              className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+            >
+              My Issues
+            </Link>
+
             {/* Issues Link - visible only for admins */}
             {session.user.role === 'ADMIN' && (
               <Link

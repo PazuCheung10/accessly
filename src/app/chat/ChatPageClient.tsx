@@ -280,12 +280,12 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
         // If no room selected yet, pick first available room
         if (!roomId && rooms.length > 0) {
           // For external customers: pick first TICKET room
-          // For internal users: pick first PUBLIC or PRIVATE room
+          // For internal users: pick first PUBLIC, PRIVATE, or TICKET room (assigned tickets)
           let firstRoom
           if (isExternalCustomer === true) {
             firstRoom = rooms.find((r) => r.type === 'TICKET')
           } else {
-            firstRoom = rooms.find((r) => r.type === 'PUBLIC' || r.type === 'PRIVATE')
+            firstRoom = rooms.find((r) => r.type === 'PUBLIC' || r.type === 'PRIVATE' || r.type === 'TICKET')
           }
           
           if (firstRoom) {
@@ -513,7 +513,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
             })()
           ) : activeTab === 'rooms' ? (
             (() => {
-              // Only show PUBLIC and PRIVATE rooms (exclude DM and TICKET for internal users)
+              // Show PUBLIC, PRIVATE, and TICKET rooms (TICKET rooms where user is assigned)
               const teamRooms = myRooms.filter((r) => r.type === 'PUBLIC' || r.type === 'PRIVATE')
               
               if (teamRooms.length === 0) {

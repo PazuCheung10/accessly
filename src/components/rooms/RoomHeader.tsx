@@ -330,7 +330,8 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
 
   const canEdit = roomDetails?.type !== 'DM' && roomDetails?.userRole === RoomRole.OWNER
   // DM rooms cannot have invites (only 2 members)
-  const canInvite = roomDetails?.type !== 'DM' && roomDetails?.type !== 'TICKET' && (roomDetails?.userRole === RoomRole.OWNER || roomDetails?.userRole === RoomRole.MODERATOR)
+  // TICKET and PRIVATE rooms can have invites (OWNER/MODERATOR only)
+  const canInvite = roomDetails?.type !== 'DM' && (roomDetails?.type === 'PRIVATE' || roomDetails?.type === 'TICKET') && (roomDetails?.userRole === RoomRole.OWNER || roomDetails?.userRole === RoomRole.MODERATOR)
   const canAssign = roomDetails?.type === 'TICKET' && roomDetails?.userRole === RoomRole.OWNER
   // Admin can change ticket status
   const canChangeStatus = roomDetails?.type === 'TICKET' && session?.user?.role === 'ADMIN'
@@ -640,7 +641,9 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
       {showInvite && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Invite User</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              {roomDetails?.type === 'TICKET' ? 'Add Participant' : 'Invite User'}
+            </h3>
             <form onSubmit={handleInvite} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">
@@ -670,7 +673,7 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
                   type="submit"
                   className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded"
                 >
-                  Invite
+                  {roomDetails?.type === 'TICKET' ? 'Add Participant' : 'Invite'}
                 </button>
               </div>
             </form>
