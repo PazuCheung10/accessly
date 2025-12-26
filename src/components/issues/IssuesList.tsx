@@ -351,19 +351,6 @@ export function IssuesList({
 
       {/* Filter Controls */}
       <div className="mb-6 flex flex-wrap items-center gap-4">
-        {/* My Issues Checkbox - only for admins */}
-        {isAdmin && (
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showMyIssuesOnly}
-              onChange={(e) => setShowMyIssuesOnly(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-cyan-600 focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
-            />
-            <span className="text-sm text-slate-300">Show only my issues</span>
-          </label>
-        )}
-
         {/* Status Filter */}
         <div className="flex gap-2">
           <button
@@ -407,6 +394,19 @@ export function IssuesList({
             Resolved
           </button>
         </div>
+
+        {/* My Issues Checkbox - only for admins */}
+        {isAdmin && (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showMyIssuesOnly}
+              onChange={(e) => setShowMyIssuesOnly(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-cyan-600 focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Show only my issues</span>
+          </label>
+        )}
       </div>
 
       {/* Tickets List */}
