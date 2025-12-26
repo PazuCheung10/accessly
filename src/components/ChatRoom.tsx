@@ -1065,6 +1065,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
                         setRoom(roomId, { messages: updated })
                       }}
                       onReply={handleReply}
+                      onToggleThread={(messageId) => toggleThread(roomId, messageId)}
                       replyCount={replyCount}
                     />
                     {/* Show thread if expanded or if URL has thread parameter */}

@@ -22,13 +22,14 @@ interface MessageItemProps {
   roomId?: string
   onMessageUpdate?: (messageId: string, updates: Partial<MessageItemProps['message']>) => void
   onReply?: (messageId: string) => void
+  onToggleThread?: (messageId: string) => void
   isReply?: boolean
   replyCount?: number
 }
 
 const COMMON_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
 
-export function MessageItem({ message, currentUserId, roomId, onMessageUpdate, onReply, isReply = false, replyCount = 0 }: MessageItemProps) {
+export function MessageItem({ message, currentUserId, roomId, onMessageUpdate, onReply, onToggleThread, isReply = false, replyCount = 0 }: MessageItemProps) {
   const { data: session } = useSession()
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
@@ -347,16 +348,6 @@ Text Preview: ${result.textSnippet.slice(0, 200)}
               </p>
               {/* Edit/Delete/Reply/Reaction buttons - positioned on the side */}
               <div className={`absolute ${isOwn ? '-left-16' : '-right-16'} top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
-                {/* Only show reply button for root messages (not replies) - we only support 2 levels */}
-                {!isDeleted && onReply && !message.parentMessageId && (
-                  <button
-                    onClick={() => onReply(message.id)}
-                    className="p-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
-                    title="Reply to message"
-                  >
-                    💬
-                  </button>
-                )}
                 {/* Reaction button - only for non-own messages */}
                 {!isDeleted && !isOwn && (
                   <div className="relative">
@@ -386,6 +377,16 @@ Text Preview: ${result.textSnippet.slice(0, 200)}
                     )}
                   </div>
                 )}
+                {/* Only show reply button for root messages (not replies) - we only support 2 levels */}
+                {!isDeleted && onReply && !message.parentMessageId && (
+                  <button
+                    onClick={() => onReply(message.id)}
+                    className="p-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
+                    title="Reply to message"
+                  >
+                    💬
+                  </button>
+                )}
                 {canEdit && withinEditWindow && (
                   <>
                     <button
@@ -407,7 +408,7 @@ Text Preview: ${result.textSnippet.slice(0, 200)}
                 )}
               </div>
               {/* Test button - always visible on right side for debugging */}
-              {!isDeleted && (
+              {/* {!isDeleted && (
                 <div className={`absolute ${isOwn ? '-left-16' : '-right-16'} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity`}>
                   <button
                     onClick={testReaction}
@@ -417,13 +418,16 @@ Text Preview: ${result.textSnippet.slice(0, 200)}
                     🧪
                   </button>
                 </div>
-              )}
+              )} */}
             </div>
 
             {/* Reply count indicator */}
             {!isDeleted && replyCount > 0 && (
               <button
-                onClick={() => onReply?.(message.id)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onToggleThread?.(message.id)
+                }}
                 className="mt-1 text-xs text-slate-400 hover:text-slate-300 flex items-center gap-1"
               >
                 <span>💬</span>
