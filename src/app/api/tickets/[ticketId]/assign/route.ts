@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(
   request: Request,
-  { params }: { params: { ticketId: string } }
+  { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
     const session = await auth()
@@ -38,7 +38,7 @@ export async function POST(
       }, { status: 403 })
     }
 
-    const { ticketId } = params
+    const { ticketId } = await params
     const body = await request.json()
     const { assignToUserId } = body
 

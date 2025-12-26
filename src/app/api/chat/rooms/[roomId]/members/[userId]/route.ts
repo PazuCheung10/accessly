@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { roomId: string; userId: string } }
+  { params }: { params: Promise<{ roomId: string; userId: string }> }
 ) {
   try {
     const session = await auth()
@@ -22,7 +22,7 @@ export async function DELETE(
       return Response.json({ ok: false, code: 'UNAUTHORIZED' }, { status: 401 })
     }
 
-    const { roomId, userId } = params
+    const { roomId, userId } = await params
 
     // Get current user from DB
     const currentUser = await prisma.user.findUnique({

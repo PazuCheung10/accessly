@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(
   request: Request,
-  { params }: { params: { roomId: string } }
+  { params }: { params: Promise<{ roomId: string }> }
 ) {
   try {
     const session = await auth()
@@ -24,7 +24,7 @@ export async function GET(
       }, { status: 401 })
     }
 
-    const { roomId } = params
+    const { roomId } = await params
 
     // Verify user exists in DB
     const dbUser = await prisma.user.findUnique({
@@ -104,7 +104,7 @@ export async function GET(
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ roomId: string; userId: string }> }
+  { params }: { params: Promise<{ roomId: string }> }
 ) {
   try {
     const session = await auth()

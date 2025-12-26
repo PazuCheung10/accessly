@@ -18,7 +18,7 @@ const TransferOwnershipInput = z.object({
  */
 export async function POST(
   request: Request,
-  { params }: { params: { roomId: string } }
+  { params }: { params: Promise<{ roomId: string }> }
 ) {
   try {
     const session = await auth()
@@ -26,7 +26,7 @@ export async function POST(
       return Response.json({ ok: false, code: 'UNAUTHORIZED' }, { status: 401 })
     }
 
-    const { roomId } = params
+    const { roomId } = await params
     const body = await request.json()
     const validated = TransferOwnershipInput.parse(body)
 

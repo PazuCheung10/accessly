@@ -16,7 +16,7 @@ const ReactionInput = z.object({
  */
 export async function POST(
   request: Request,
-  { params }: { params: { messageId: string } }
+  { params }: { params: Promise<{ messageId: string }> }
 ) {
   try {
     const session = await auth()
@@ -29,7 +29,7 @@ export async function POST(
       }, { status: 401 })
     }
 
-    const { messageId } = params
+    const { messageId } = await params
     const body = await request.json()
 
     // Validate input

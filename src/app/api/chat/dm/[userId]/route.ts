@@ -44,8 +44,16 @@ export async function POST(
     }
 
     // Verify current user exists in DB
+    if (!session.user.email) {
+      return Response.json({
+        ok: false,
+        code: 'UNAUTHORIZED',
+        message: 'User email is required',
+      }, { status: 401 })
+    }
+
     const dbUser = await prisma.user.findUnique({
-      where: { email: session.user.email || '' },
+      where: { email: session.user.email },
       select: { id: true, email: true, name: true, image: true },
     })
 
@@ -142,7 +150,7 @@ export async function POST(
               id: dmRoom.id,
               name: dmRoom.name,
               title: dmRoom.title,
-              description: dmRoom.description,
+              description: dmRoom.description ?? null,
               type: dmRoom.type,
               isPrivate: dmRoom.isPrivate,
               createdAt: dmRoom.createdAt.toISOString(),

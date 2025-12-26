@@ -18,7 +18,7 @@ const DeleteRoomInput = z.object({
  */
 export async function DELETE(
   request: Request,
-  { params }: { params: { roomId: string } }
+  { params }: { params: Promise<{ roomId: string }> }
 ) {
   try {
     const session = await auth()
@@ -28,7 +28,7 @@ export async function DELETE(
 
     assertRole(session, Role.ADMIN)
 
-    const { roomId } = params
+    const { roomId } = await params
     const body = await request.json()
     const validated = DeleteRoomInput.parse(body)
 

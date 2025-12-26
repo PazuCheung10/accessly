@@ -17,7 +17,7 @@ const StatusInput = z.object({
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { ticketId: string } }
+  { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
     const session = await auth()
@@ -43,7 +43,7 @@ export async function PATCH(
       }, { status: 403 })
     }
 
-    const { ticketId } = params
+    const { ticketId } = await params
     const body = await request.json()
 
     // Validate input

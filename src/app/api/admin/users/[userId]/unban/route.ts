@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const session = await auth()
@@ -23,7 +23,7 @@ export async function POST(
 
     assertRole(session, Role.ADMIN)
 
-    const { userId } = params
+    const { userId } = await params
 
     // Get admin user from DB
     const adminUser = await prisma.user.findUnique({

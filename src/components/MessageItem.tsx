@@ -347,66 +347,77 @@ Text Preview: ${result.textSnippet.slice(0, 200)}
                 {isDeleted ? '[Message deleted]' : message.content}
               </p>
               {/* Edit/Delete/Reply/Reaction buttons - positioned on the side */}
-              <div className={`absolute ${isOwn ? '-left-16' : '-right-16'} top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
-                {/* Reaction button - only for non-own messages */}
-                {!isDeleted && !isOwn && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowReactions(!showReactions)}
-                      className="p-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
-                      title="Add reaction"
-                    >
-                      😀
-                    </button>
-                    {showReactions && (
-                      <div className="absolute bottom-full left-0 mb-2 flex gap-1 p-2 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-10">
-                        {COMMON_EMOJIS.map((emoji) => (
-                          <button
-                            key={emoji}
-                            onClick={() => {
-                              handleReaction(emoji)
-                              setShowReactions(false)
-                            }}
-                            className="text-xl hover:scale-125 transition-transform"
-                            title={emoji}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
+              {(() => {
+                const showReplyButton = !isDeleted && onReply && !message.parentMessageId
+                const showEmojiButton = !isDeleted && !isOwn
+                // Adjust offset based on whether reply button is shown
+                const offsetClass = showReplyButton 
+                  ? (isOwn ? '-left-16' : '-right-16')
+                  : (isOwn ? '-left-12' : '-right-12')
+                
+                return (
+                  <div className={`absolute ${offsetClass} top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                    {/* Reaction button - only for non-own messages */}
+                    {showEmojiButton && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowReactions(!showReactions)}
+                          className="p-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
+                          title="Add reaction"
+                        >
+                          😀
+                        </button>
+                        {showReactions && (
+                          <div className="absolute bottom-full left-0 mb-2 flex gap-1 p-2 bg-slate-800 border border-slate-700 rounded-lg shadow-lg z-10">
+                            {COMMON_EMOJIS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => {
+                                  handleReaction(emoji)
+                                  setShowReactions(false)
+                                }}
+                                className="text-xl hover:scale-125 transition-transform"
+                                title={emoji}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
+                    {/* Only show reply button for root messages (not replies) - we only support 2 levels */}
+                    {showReplyButton && (
+                      <button
+                        onClick={() => onReply(message.id)}
+                        className="p-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
+                        title="Reply to message"
+                      >
+                        💬
+                      </button>
+                    )}
+                    {canEdit && withinEditWindow && (
+                      <>
+                        <button
+                          onClick={() => setIsEditing(true)}
+                          className="p-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
+                          title="Edit message"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          disabled={isDeleting}
+                          className="p-1 text-xs bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
+                          title="Delete message"
+                        >
+                          🗑️
+                        </button>
+                      </>
+                    )}
                   </div>
-                )}
-                {/* Only show reply button for root messages (not replies) - we only support 2 levels */}
-                {!isDeleted && onReply && !message.parentMessageId && (
-                  <button
-                    onClick={() => onReply(message.id)}
-                    className="p-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
-                    title="Reply to message"
-                  >
-                    💬
-                  </button>
-                )}
-                {canEdit && withinEditWindow && (
-                  <>
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="p-1 text-xs bg-slate-700 hover:bg-slate-600 rounded"
-                      title="Edit message"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={handleDelete}
-                      disabled={isDeleting}
-                      className="p-1 text-xs bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
-                      title="Delete message"
-                    >
-                      🗑️
-                    </button>
-                  </>
-                )}
-              </div>
+                )
+              })()}
               {/* Test button - always visible on right side for debugging */}
               {/* {!isDeleted && (
                 <div className={`absolute ${isOwn ? '-left-16' : '-right-16'} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity`}>
