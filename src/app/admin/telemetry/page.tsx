@@ -30,14 +30,11 @@ export default async function TelemetryPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6">
           <h1 className="text-3xl font-bold">Observability Dashboard</h1>
-          <Link
-            href="/admin"
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-          >
-            Back to Dashboard
-          </Link>
+          <p className="text-slate-400 mt-1">
+            Real-time system metrics and performance monitoring
+          </p>
         </div>
 
         {/* Admin Navigation */}
