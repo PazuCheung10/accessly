@@ -74,6 +74,11 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
 
   useEffect(() => {
     fetchRoomDetails()
+    // Reset all UI states when room changes
+    setIsEditing(false)
+    setShowMembers(false)
+    setShowInvite(false)
+    setShowAssign(false)
   }, [roomId])
 
   useEffect(() => {
