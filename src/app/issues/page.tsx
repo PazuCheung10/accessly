@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
-import { MyIssuesList } from '@/components/issues/MyIssuesList'
+import { IssuesList } from '@/components/issues/IssuesList'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Role } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -24,19 +25,21 @@ export default async function IssuesPage() {
     redirect('/sign-in?callbackUrl=/issues')
   }
 
+  const isAdmin = dbUser.role === Role.ADMIN
+
   return (
     <div className="min-h-screen bg-slate-950 text-white p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold">My Issues</h1>
+            <h1 className="text-3xl font-bold">Issues</h1>
             <p className="text-slate-400 mt-1">
-              Issues assigned to you
+              {isAdmin ? 'Manage and respond to all issues' : 'Issues assigned to you'}
             </p>
           </div>
         </div>
 
-        <MyIssuesList />
+        <IssuesList isAdmin={isAdmin} userId={dbUser.id} />
       </div>
     </div>
   )

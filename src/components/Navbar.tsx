@@ -164,23 +164,13 @@ export function Navbar() {
                 </Link>
               )}
 
-              {/* My Issues Link - visible to all authenticated users */}
+              {/* Issues Link - visible to all authenticated users */}
               <Link
                 href="/issues"
                 className="px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900 text-sm whitespace-nowrap"
               >
-                My Issues
+                Issues
               </Link>
-
-              {/* Issues Link - visible only for admins */}
-              {session.user.role === 'ADMIN' && (
-                <Link
-                  href="/tickets"
-                  className="px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900 text-sm whitespace-nowrap"
-                >
-                  Issues
-                </Link>
-              )}
             </div>
           </div>
 
