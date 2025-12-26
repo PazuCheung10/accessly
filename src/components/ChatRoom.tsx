@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { initSocket } from '@/lib/socket'
@@ -31,8 +31,9 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   const upsertMessages = useChatStore((s) => s.upsertMessages)
   const toggleThread = useChatStore((s) => s.toggleThread)
   const isThreadExpanded = useChatStore((s) => s.isThreadExpanded)
-  // Subscribe to expandedThreads to trigger re-render when threads are toggled
-  const expandedThreads = useChatStore((s) => s.expandedThreads[roomId] ?? [])
+  // Subscribe to the entire expandedThreads object to trigger re-render when threads are toggled
+  // This avoids creating new array references
+  const expandedThreadsMap = useChatStore((s) => s.expandedThreads)
 
   const messages: Msg[] = room?.messages ?? []
   
@@ -1051,7 +1052,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
                 // Get replies for this message
                 const replies = messages.filter((reply) => reply.parentMessageId === m.id)
                 const replyCount = replies.length
-                const expanded = expandedThreads.includes(m.id) || threadId === m.id
+                const expanded = (expandedThreadsMap[roomId]?.includes(m.id)) || threadId === m.id
                 
                 return (
                   <div key={m.id} id={`message-${m.id}`}>
@@ -1130,53 +1131,60 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
             <div className="mb-2 text-red-400 text-sm">{error}</div>
           )}
           <div className="flex gap-2 w-full min-w-0">
-            {replyingTo && (() => {
-              const replyingToMessage = messages.find((m) => m.id === replyingTo)
-              return (
-                <div className="mb-2 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 flex items-center justify-between">
-                  <span>
-                    Replying to <span className="font-medium">{replyingToMessage?.user?.name || 'message'}</span>
-                    {replyingToMessage?.content && (
-                      <span className="text-slate-500 ml-2">
-                        {replyingToMessage.content.slice(0, 50)}
-                        {replyingToMessage.content.length > 50 ? '...' : ''}
-                      </span>
-                    )}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setReplyingTo(null)
-                      const params = new URLSearchParams(searchParams.toString())
-                      params.delete('thread')
-                      router.push(`?${params.toString()}`, { scroll: false })
-                    }}
-                    className="text-slate-400 hover:text-slate-200"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )
-            })()}
-            <textarea
-              value={input}
-              onChange={handleInputChange}
-              onFocus={handleInputFocus}
-              onKeyPress={handleKeyPress}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleKeyPress(e as any)
-                }
-              }}
-              placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
-              disabled={isLoading}
-              className="flex-1 min-w-0 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
-              rows={2}
-            />
+            <div className="flex-1 min-w-0 flex flex-col">
+              {replyingTo && (() => {
+                const replyingToMessage = messages.find((m) => m.id === replyingTo)
+                return (
+                  <div className="mb-1 px-3 py-1.5 bg-slate-700/50 border-l-3 border-cyan-500 rounded-t-lg text-xs text-slate-300 flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-cyan-400 truncate">
+                        {replyingToMessage?.user?.name || 'Unknown'}
+                      </div>
+                      {replyingToMessage?.content && (
+                        <div className="text-slate-400 truncate mt-0.5">
+                          {replyingToMessage.content.slice(0, 60)}
+                          {replyingToMessage.content.length > 60 ? '...' : ''}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setReplyingTo(null)
+                        const params = new URLSearchParams(searchParams.toString())
+                        params.delete('thread')
+                        router.push(`?${params.toString()}`, { scroll: false })
+                      }}
+                      className="ml-2 text-slate-400 hover:text-slate-200 flex-shrink-0 p-1 rounded hover:bg-slate-600 transition-colors"
+                      title="Cancel reply"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )
+              })()}
+              <textarea
+                value={input}
+                onChange={handleInputChange}
+                onFocus={handleInputFocus}
+                onKeyPress={handleKeyPress}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleKeyPress(e as any)
+                  }
+                }}
+                placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
+                disabled={isLoading}
+                className={`flex-1 min-w-0 px-4 py-2 bg-slate-800 border border-slate-700 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none ${
+                  replyingTo ? 'rounded-b-lg rounded-t-none' : 'rounded-lg'
+                }`}
+                rows={2}
+              />
+            </div>
             <button
               onClick={sendMessage}
               disabled={isLoading || !input.trim()}
-              className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg transition-colors flex-shrink-0"
+              className="px-6 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg transition-colors flex-shrink-0 self-end"
             >
               Send
             </button>
