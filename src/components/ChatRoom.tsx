@@ -1054,7 +1054,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
                 const expanded = expandedThreads.includes(m.id) || threadId === m.id
                 
                 return (
-                  <div key={`${m.id}-${expanded ? 'open' : 'closed'}`} id={`message-${m.id}`}>
+                  <div key={m.id} id={`message-${m.id}`}>
                     <MessageItem 
                       message={m} 
                       currentUserId={currentUserId || session.user!.id}
