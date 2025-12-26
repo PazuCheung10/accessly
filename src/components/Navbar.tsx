@@ -130,91 +130,134 @@ export function Navbar() {
 
   return (
     <nav className="bg-slate-900 border-b border-slate-800" role="navigation">
-      <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="flex items-center justify-between gap-6">
-          <Link
-            href="/"
-            className="text-xl font-bold text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900 rounded"
-          >
-            SolaceDesk
-          </Link>
-
-          <div className="flex items-center gap-6 flex-1 max-w-2xl mx-6">
-            {/* Search bar - shown for all authenticated users */}
-            <SearchBar className="flex-1" />
-          </div>
-
-          <div className="flex items-center gap-4">
-
-            {/* System Dashboard Link - visible only for admins */}
-            {session.user.role === 'ADMIN' && (
-              <Link
-                href="/admin"
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-slate-900 font-medium"
-              >
-                Dashboard
-              </Link>
-            )}
-
-            {/* My Issues Link - visible to all authenticated users */}
+      <div className="w-full py-3">
+        <div className="flex items-center justify-between gap-2 md:gap-4 min-w-0">
+          {/* Left side: Logo */}
+          <div className="flex items-center flex-shrink-0 pl-4 md:pl-6">
             <Link
-              href="/issues"
-              className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+              href="/"
+              className="text-lg md:text-xl font-bold text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900 rounded hidden lg:block"
             >
-              My Issues
+              SolaceDesk
             </Link>
-
-            {/* Issues Link - visible only for admins */}
-            {session.user.role === 'ADMIN' && (
-              <Link
-                href="/tickets"
-                className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
-              >
-                Issues
-              </Link>
-            )}
-
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4">
+          {/* Center: Search bar and navigation links */}
+          <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0 justify-center max-w-5xl mx-4 md:mx-6">
+            {/* Search bar - more prominent */}
+            <div className="flex-1 min-w-0 max-w-xl md:max-w-2xl">
+              <SearchBar className="w-full min-w-0" />
+            </div>
+
+            {/* Visual separator */}
+            <div className="hidden md:block w-px h-6 bg-slate-700 flex-shrink-0"></div>
+
+            {/* Navigation Links - grouped with better visual treatment */}
+            <div className="hidden md:flex items-center gap-2 flex-shrink-0 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50">
+              {/* System Dashboard Link - visible only for admins */}
+              {session.user.role === 'ADMIN' && (
+                <Link
+                  href="/admin"
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-slate-900 font-medium text-sm whitespace-nowrap"
+                >
+                  Dashboard
+                </Link>
+              )}
+
+              {/* My Issues Link - visible to all authenticated users */}
+              <Link
+                href="/issues"
+                className="px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900 text-sm whitespace-nowrap"
+              >
+                My Issues
+              </Link>
+
+              {/* Issues Link - visible only for admins */}
+              {session.user.role === 'ADMIN' && (
+                <Link
+                  href="/tickets"
+                  className="px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900 text-sm whitespace-nowrap"
+                >
+                  Issues
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Right side: User Info and Sign Out */}
+          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0 pr-4 md:pr-6">
+            {/* User Avatar and Info - hide name/role at lg breakpoint, show only on xl+ */}
+            <div className="hidden xl:flex items-center gap-2">
               {/* User Avatar */}
               {session.user.image ? (
                 <img
                   src={session.user.image}
                   alt={session.user.name || 'User avatar'}
-                  className="w-8 h-8 rounded-full border-2 border-slate-700"
+                  className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-slate-700 flex-shrink-0"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 text-sm font-medium">
+                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 text-xs md:text-sm font-medium flex-shrink-0">
                   {session.user.name?.[0]?.toUpperCase() ||
                     session.user.email?.[0]?.toUpperCase() ||
                     '?'}
                 </div>
               )}
 
-              {/* User Name */}
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-white">
-                  {session.user.name || session.user.email || 'User'}
+              {/* User Name and Badge on same line */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs md:text-sm font-medium text-white whitespace-nowrap truncate">
+                  {session.user.name || session.user.email?.split('@')[0] || 'User'}
                 </span>
-                <span className="text-xs text-slate-400">{session.user.email}</span>
+                {/* Role/Department Badge */}
+                <span
+                  className={`px-1.5 py-0.5 text-xs font-semibold rounded border flex-shrink-0 ${badgeInfo.color}`}
+                >
+                  {badgeInfo.label}
+                </span>
               </div>
-
-              {/* Role/Department Badge */}
-              <span
-                className={`px-2 py-1 text-xs font-semibold rounded border ${badgeInfo.color}`}
-              >
-                {badgeInfo.label}
-              </span>
             </div>
 
-            {/* Sign Out Button */}
+            {/* Avatar only - shown on lg screens (between sm and xl) */}
+            <div className="hidden lg:flex xl:hidden">
+              {session.user.image ? (
+                <img
+                  src={session.user.image}
+                  alt={session.user.name || 'User avatar'}
+                  className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-slate-700 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 text-xs md:text-sm font-medium flex-shrink-0">
+                  {session.user.name?.[0]?.toUpperCase() ||
+                    session.user.email?.[0]?.toUpperCase() ||
+                    '?'}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile: Just avatar */}
+            <div className="lg:hidden">
+              {session.user.image ? (
+                <img
+                  src={session.user.image}
+                  alt={session.user.name || 'User avatar'}
+                  className="w-7 h-7 rounded-full border-2 border-slate-700 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 text-xs font-medium flex-shrink-0">
+                  {session.user.name?.[0]?.toUpperCase() ||
+                    session.user.email?.[0]?.toUpperCase() ||
+                    '?'}
+                </div>
+              )}
+            </div>
+
+            {/* Sign Out Button - compact */}
             <button
               onClick={handleSignOut}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+              className="px-3 py-1.5 md:px-4 md:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-900 text-sm whitespace-nowrap flex-shrink-0"
             >
-              Sign Out
+              <span className="hidden sm:inline">Sign Out</span>
+              <span className="sm:hidden">Out</span>
             </button>
           </div>
         </div>
