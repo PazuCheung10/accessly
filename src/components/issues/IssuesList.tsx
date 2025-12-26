@@ -227,7 +227,7 @@ export function IssuesList({ isAdmin, userId }: IssuesListProps) {
               : 'No issues assigned to you'}
           </p>
           {!isAdmin && (
-            <p className="text-sm text-slate-500 mt-2">Issues will appear here once you're assigned to them</p>
+            <p className="text-sm text-slate-500 mt-2">Issues will appear here once you&apos;re assigned to them</p>
           )}
         </div>
       ) : (

@@ -545,12 +545,12 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
               {isExternalCustomer === true ? 'My Tickets' : 'Chat'}
             </h2>
             {isExternalCustomer !== true && (
-              <a
+              <Link
                 href="/"
                 className="px-3 py-1 text-sm bg-cyan-600 hover:bg-cyan-700 rounded transition-colors"
               >
                 Discover
-              </a>
+              </Link>
             )}
           </div>
         </div>
@@ -752,12 +752,12 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
                 return (
                   <div className="text-xs text-slate-500 p-4 text-center">
                     <div>No rooms found</div>
-                    <a
+                    <Link
                       href="/"
                       className="mt-2 inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded text-sm transition-colors"
                     >
                       Discover Rooms
-                    </a>
+                    </Link>
                   </div>
                 )
               }

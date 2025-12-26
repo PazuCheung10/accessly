@@ -169,7 +169,7 @@ export function CustomerPortal() {
       {/* Tickets List */}
       {tickets.length === 0 ? (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-12 text-center">
-          <p className="text-slate-400 mb-4">You don't have any support tickets yet.</p>
+          <p className="text-slate-400 mb-4">You don&apos;t have any support tickets yet.</p>
           <Link
             href="/support"
             className="inline-block px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-semibold transition-colors"
