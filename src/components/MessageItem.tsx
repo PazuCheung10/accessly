@@ -349,9 +349,10 @@ Text Preview: ${result.textSnippet.slice(0, 200)}
               {/* Edit/Delete/Reply/Reaction buttons - positioned on the side */}
               {(() => {
                 const showReplyButton = !isDeleted && onReply && !message.parentMessageId
-                const showEmojiButton = !isDeleted && !isOwn
+                const showEmojiButton = !isDeleted // Allow emoji reactions on own messages for symmetry
                 // Adjust offset for replies to account for indentation (ml-8 + pl-4 = 3rem total)
                 // Replies need less offset to maintain same visual gap
+                // For own messages with flex-row-reverse, when replying to self, need to account for the indentation
                 const offsetClass = isReply
                   ? (isOwn ? '-left-9' : '-right-9')
                   : (isOwn ? '-left-16' : '-right-16')
