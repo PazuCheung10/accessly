@@ -529,7 +529,7 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
               console.log('Members button clicked, toggling showMembers:', !showMembers)
               setShowMembers(!showMembers)
             }}
-            className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded"
+            className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded min-w-[70px] text-center"
             title="View members"
           >
             👥 {roomDetails?._count?.members ?? 0}
