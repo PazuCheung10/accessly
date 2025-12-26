@@ -180,7 +180,7 @@ export async function POST(request: Request) {
 
     const { title, description, department, assignToUserId } = validated.data
 
-    // If assignee specified, verify they exist and are admin
+    // If assignee specified, verify they exist (any role is allowed)
     let assigneeId = dbUser.id // Default: self-assign
     if (assignToUserId) {
       const assignee = await prisma.user.findUnique({
@@ -188,11 +188,11 @@ export async function POST(request: Request) {
         select: { id: true, role: true },
       })
 
-      if (!assignee || assignee.role !== Role.ADMIN) {
+      if (!assignee) {
         return Response.json({
           ok: false,
           code: 'INVALID_ASSIGNEE',
-          message: 'Can only assign to admins',
+          message: 'Assignee not found',
         }, { status: 400 })
       }
       assigneeId = assignee.id
@@ -213,39 +213,44 @@ export async function POST(request: Request) {
       ? `[TICKET][${departmentLabel}] ${title}`
       : `[TICKET] ${title}`
 
-    // Create ticket room
-    const ticketRoom = await prisma.room.create({
-      data: {
-        name: ticketName,
-        title: ticketTitle,
-        description: description,
-        type: RoomType.TICKET,
-        status: TicketStatus.OPEN,
-        ticketDepartment: (department as TicketDepartment) || null,
-        isPrivate: true,
-        creatorId: dbUser.id,
-      },
-    })
+    // Create ticket room and memberships in a transaction to ensure consistency
+    const ticketRoom = await prisma.$transaction(async (tx) => {
+      // Create ticket room
+      const room = await tx.room.create({
+        data: {
+          name: ticketName,
+          title: ticketTitle,
+          description: description,
+          type: RoomType.TICKET,
+          status: TicketStatus.OPEN,
+          ticketDepartment: (department as TicketDepartment) || null,
+          isPrivate: true,
+          creatorId: dbUser.id,
+        },
+      })
 
-    // Add creator as OWNER
-    await prisma.roomMember.create({
-      data: {
-        userId: dbUser.id,
-        roomId: ticketRoom.id,
-        role: 'OWNER',
-      },
-    })
-
-    // Add assignee as OWNER (if different from creator)
-    if (assigneeId !== dbUser.id) {
-      await prisma.roomMember.create({
+      // Add assignee as OWNER (only one OWNER per ticket)
+      await tx.roomMember.create({
         data: {
           userId: assigneeId,
-          roomId: ticketRoom.id,
+          roomId: room.id,
           role: 'OWNER',
         },
       })
-    }
+
+      // If creator is different from assignee, add creator as MODERATOR
+      if (assigneeId !== dbUser.id) {
+        await tx.roomMember.create({
+          data: {
+            userId: dbUser.id,
+            roomId: room.id,
+            role: 'MODERATOR',
+          },
+        })
+      }
+
+      return room
+    })
 
     // Create the first message (the issue description)
     await prisma.message.create({
