@@ -126,6 +126,21 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
     return () => clearTimeout(timeoutId)
   }, [userSearchQuery, showAssign])
 
+  // Debounced search for users (Invite modal)
+  useEffect(() => {
+    if (!showInvite) return
+
+    const timeoutId = setTimeout(() => {
+      if (inviteSearchQuery.trim()) {
+        fetchAllUsersForInvite(inviteSearchQuery.trim())
+      } else {
+        fetchAllUsersForInvite()
+      }
+    }, 300) // 300ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [inviteSearchQuery, showInvite])
+
 
   // Close user results dropdown when clicking outside (Assign modal)
   useEffect(() => {
@@ -181,10 +196,14 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
     }
   }
 
-  const fetchAllUsersForInvite = async () => {
+  const fetchAllUsersForInvite = async (searchQuery: string = '') => {
     try {
       setIsSearchingInviteUsers(true)
-      const response = await fetch('/api/admin/users')
+      // Use non-admin endpoint that allows room owners/moderators to search users
+      const url = searchQuery
+        ? `/api/users/list?search=${encodeURIComponent(searchQuery)}`
+        : '/api/users/list'
+      const response = await fetch(url)
       const data = await response.json()
       if (data.ok && data.data?.users) {
         setAllInviteUsers(data.data.users)
@@ -877,19 +896,7 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
                       const query = e.target.value
                       setInviteSearchQuery(query)
                       setShowInviteUserResults(true)
-
-                      // Client-side filtering
-                      if (query.trim()) {
-                        const lower = query.toLowerCase()
-                        setFilteredInviteUsers(
-                          allInviteUsers.filter((user) =>
-                            (user.name?.toLowerCase().includes(lower) ||
-                             user.email.toLowerCase().includes(lower))
-                          )
-                        )
-                      } else {
-                        setFilteredInviteUsers(allInviteUsers)
-                      }
+                      // Server-side search is handled by debounced useEffect
                     }}
                     onFocus={() => setShowInviteUserResults(true)}
                     placeholder="Search by name or email..."
