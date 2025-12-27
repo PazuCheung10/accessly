@@ -64,22 +64,24 @@ export async function POST(
       )
     }
 
-    // Get current owner membership (if exists)
-    const currentOwnerMembership = await getMembership(currentUser.id, roomId, prisma)
+    // Find current owner(s) - there should only be one, but handle multiple for safety
+    const currentOwners = await prisma.roomMember.findMany({
+      where: {
+        roomId,
+        role: RoomRole.OWNER,
+      },
+    })
 
     // Transfer ownership in a transaction
     await prisma.$transaction(async (tx) => {
-      // Demote current owner to moderator (only if they're a member and not the new owner)
-      if (currentOwnerMembership && currentOwnerMembership.role === RoomRole.OWNER && validated.newOwnerId !== currentUser.id) {
-        await tx.roomMember.update({
-          where: {
-            userId_roomId: {
-              userId: currentUser.id,
-              roomId,
-            },
-          },
-          data: { role: RoomRole.MODERATOR },
-        })
+      // Demote all current owners to moderator (except the new owner)
+      for (const owner of currentOwners) {
+        if (owner.userId !== validated.newOwnerId) {
+          await tx.roomMember.update({
+            where: { id: owner.id },
+            data: { role: RoomRole.MODERATOR },
+          })
+        }
       }
 
       // Promote new owner
