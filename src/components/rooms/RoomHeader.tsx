@@ -521,10 +521,9 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
      roomDetails?.userRole === RoomRole.MODERATOR || 
      roomDetails?.isAdmin || 
      session?.user?.role === 'ADMIN')
-  // Only admins can assign TICKET rooms (issues)
-  // No assign button for non-ticket rooms (use Add Participant and Promote to Moderator instead)
-  const canAssign = roomDetails?.type === 'TICKET' && 
-    (roomDetails?.isAdmin || session?.user?.role === 'ADMIN')
+  // Assign button removed - use member list to promote to OWNER instead
+  // This avoids redundancy since member list can already change roles
+  const canAssign = false
   // Admin can change ticket status
   const canChangeStatus = roomDetails?.type === 'TICKET' && (roomDetails?.isAdmin || session?.user?.role === 'ADMIN')
 
@@ -920,8 +919,20 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
 
       {/* Invite Modal */}
       {showInvite && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="invite-modal-container bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-md">
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowInvite(false)
+              setInviteEmail('')
+              setInviteUserId('')
+              setInviteSearchQuery('')
+              setShowInviteUserResults(false)
+              setSelectedInviteUser(null)
+            }
+          }}
+        >
+          <div className="invite-modal-container bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-2xl">
             <h3 className="text-lg font-semibold mb-4">
               Add Participant
             </h3>
@@ -1258,8 +1269,15 @@ function MembersList({
   }, [session?.user?.email])
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-3xl max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Room Members</h3>
           <button
@@ -1284,25 +1302,25 @@ function MembersList({
         ) : members.length === 0 ? (
           <div className="text-slate-400">No members found</div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {members.map((member) => {
               const isCurrentUser = currentUserId && member.user.id === currentUserId
               return (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-3 bg-slate-900 rounded"
+                  className="flex items-center justify-between p-4 bg-slate-900 rounded-lg"
                 >
-                  <div>
-                    <div className="font-medium">{member.user.name || member.user.email}</div>
-                    <div className="text-xs text-slate-400">{member.user.email}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-white">{member.user.name || member.user.email}</div>
+                    <div className="text-xs text-slate-400 mt-1">{member.user.email}</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-1 bg-slate-700 rounded">{member.role}</span>
+                  <div className="flex items-center gap-3 ml-4">
+                    <span className="text-xs px-3 py-1.5 bg-slate-700 rounded font-medium">{member.role}</span>
                     {/* DM feature disabled - message button removed */}
                     {canTransferOwnership && member.role !== RoomRole.OWNER && !isCurrentUser && (
                       <button
                         onClick={() => handleTransferOwnership(member.user.id)}
-                        className="px-2 py-1 text-xs bg-purple-600 hover:bg-purple-700 rounded"
+                        className="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-700 rounded font-medium whitespace-nowrap"
                         title="Transfer ownership"
                       >
                         Make Owner
@@ -1311,7 +1329,7 @@ function MembersList({
                     {canChangeRoles && member.role === RoomRole.MEMBER && !isCurrentUser && (
                       <button
                         onClick={() => handlePromoteToModerator(member.user.id)}
-                        className="px-2 py-1 text-xs bg-cyan-600 hover:bg-cyan-700 rounded"
+                        className="px-3 py-1.5 text-xs bg-cyan-600 hover:bg-cyan-700 rounded font-medium whitespace-nowrap"
                         title="Promote to moderator"
                       >
                         Make Moderator
@@ -1320,7 +1338,7 @@ function MembersList({
                     {canChangeRoles && member.role === RoomRole.MODERATOR && !isCurrentUser && (
                       <button
                         onClick={() => handleDemoteToMember(member.user.id)}
-                        className="px-2 py-1 text-xs bg-slate-600 hover:bg-slate-700 rounded"
+                        className="px-3 py-1.5 text-xs bg-slate-600 hover:bg-slate-700 rounded font-medium whitespace-nowrap"
                         title="Demote to member"
                       >
                         Make Member
@@ -1329,7 +1347,7 @@ function MembersList({
                     {canRemove && member.role !== RoomRole.OWNER && !isCurrentUser && (
                       <button
                         onClick={() => handleRemoveMember(member.user.id)}
-                        className="px-2 py-1 text-xs bg-red-600 hover:bg-red-700 rounded"
+                        className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 rounded font-medium whitespace-nowrap"
                         title="Remove member"
                       >
                         Remove
