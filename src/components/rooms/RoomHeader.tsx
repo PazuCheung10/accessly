@@ -521,11 +521,10 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
      roomDetails?.userRole === RoomRole.MODERATOR || 
      roomDetails?.isAdmin || 
      session?.user?.role === 'ADMIN')
-  // Same logic as ticket rooms: admins and room creators can assign
-  // For TICKET rooms: use ticket assign endpoint
-  // For PUBLIC/PRIVATE rooms: use invite endpoint with MODERATOR role
-  const canAssign = roomDetails?.type !== 'DM' && 
-    (roomDetails?.userRole === RoomRole.OWNER || roomDetails?.isAdmin || session?.user?.role === 'ADMIN')
+  // Only admins can assign TICKET rooms (issues)
+  // No assign button for non-ticket rooms (use Add Participant and Promote to Moderator instead)
+  const canAssign = roomDetails?.type === 'TICKET' && 
+    (roomDetails?.isAdmin || session?.user?.role === 'ADMIN')
   // Admin can change ticket status
   const canChangeStatus = roomDetails?.type === 'TICKET' && (roomDetails?.isAdmin || session?.user?.role === 'ADMIN')
 
@@ -679,7 +678,7 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
             <button
               onClick={() => setShowAssign(!showAssign)}
               className="px-3 py-1 text-sm bg-purple-600 hover:bg-purple-700 rounded"
-              title={roomDetails?.type === 'TICKET' ? 'Assign ticket owner (replaces current owner)' : 'Assign user as moderator'}
+              title="Assign ticket owner (replaces current owner)"
             >
               👤 Assign
             </button>
@@ -818,7 +817,7 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">
-              {roomDetails?.type === 'TICKET' ? 'Assign Issue' : 'Assign User'}
+              Assign Issue
             </h3>
             <form onSubmit={handleAssign} className="space-y-4">
               <div className="relative user-search-container">
@@ -1145,6 +1144,31 @@ function MembersList({
     }
   }
 
+  const handlePromoteToModerator = async (userId: string) => {
+    if (!confirm('Promote this user to moderator?')) return
+
+    try {
+      const response = await fetch(`/api/chat/rooms/${roomId}/members/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ role: 'MODERATOR' }),
+      })
+
+      const data = await response.json()
+      if (data.ok) {
+        fetchMembers()
+        onMemberRemoved() // Refresh room details
+        alert('User promoted to moderator successfully')
+      } else {
+        alert(data.message || 'Failed to promote user')
+      }
+    } catch (err) {
+      console.error('Error promoting to moderator:', err)
+      alert('Failed to promote user')
+    }
+  }
+
   // Only OWNER can remove members (MODERATOR can invite but not remove)
   const canRemove = userRole === RoomRole.OWNER
   const canTransferOwnership = userRole === RoomRole.OWNER
@@ -1252,6 +1276,15 @@ function MembersList({
                         title="Transfer ownership"
                       >
                         Make Owner
+                      </button>
+                    )}
+                    {canTransferOwnership && member.role === RoomRole.MEMBER && !isCurrentUser && (
+                      <button
+                        onClick={() => handlePromoteToModerator(member.user.id)}
+                        className="px-2 py-1 text-xs bg-cyan-600 hover:bg-cyan-700 rounded"
+                        title="Promote to moderator"
+                      >
+                        Make Moderator
                       </button>
                     )}
                     {canRemove && member.role !== RoomRole.OWNER && !isCurrentUser && (
