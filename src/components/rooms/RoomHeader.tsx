@@ -513,9 +513,9 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
     (roomDetails?.userRole === RoomRole.OWNER || roomDetails?.isAdmin || session?.user?.role === 'ADMIN')
   // DM rooms cannot have invites (only 2 members)
   // All other rooms (PUBLIC, PRIVATE, TICKET) can have invites:
-  // - OWNER/MODERATOR can always invite (room creators are OWNER)
+  // - OWNER can always invite
+  // - MODERATOR can always invite (even if not the owner)
   // - ADMIN can invite to any room (even if not OWNER/MODERATOR)
-  // - Room creator (OWNER) can always invite to their rooms
   const canInvite = roomDetails?.type !== 'DM' && 
     (roomDetails?.userRole === RoomRole.OWNER || 
      roomDetails?.userRole === RoomRole.MODERATOR || 
@@ -1034,6 +1034,7 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
         <MembersList
           roomId={roomId}
           userRole={roomDetails?.userRole ?? null}
+          isAdmin={roomDetails?.isAdmin || session?.user?.role === 'ADMIN'}
           onClose={() => {
             console.log('Closing members modal')
             setShowMembers(false)
@@ -1048,11 +1049,13 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
 function MembersList({
   roomId,
   userRole,
+  isAdmin,
   onClose,
   onMemberRemoved,
 }: {
   roomId: string
   userRole: RoomRole | null
+  isAdmin?: boolean
   onClose: () => void
   onMemberRemoved: () => void
 }) {
@@ -1169,9 +1172,36 @@ function MembersList({
     }
   }
 
-  // Only OWNER can remove members (MODERATOR can invite but not remove)
-  const canRemove = userRole === RoomRole.OWNER
-  const canTransferOwnership = userRole === RoomRole.OWNER
+  const handleDemoteToMember = async (userId: string) => {
+    if (!confirm('Demote this user to member?')) return
+
+    try {
+      const response = await fetch(`/api/chat/rooms/${roomId}/members/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ role: 'MEMBER' }),
+      })
+
+      const data = await response.json()
+      if (data.ok) {
+        fetchMembers()
+        onMemberRemoved() // Refresh room details
+        alert('User demoted to member successfully')
+      } else {
+        alert(data.message || 'Failed to demote user')
+      }
+    } catch (err) {
+      console.error('Error demoting to member:', err)
+      alert('Failed to demote user')
+    }
+  }
+
+  // OWNER and ADMIN can remove members (MODERATOR can invite but not remove)
+  const canRemove = userRole === RoomRole.OWNER || isAdmin
+  // OWNER and ADMIN can transfer ownership and change roles
+  const canTransferOwnership = userRole === RoomRole.OWNER || isAdmin
+  const canChangeRoles = userRole === RoomRole.OWNER || isAdmin
 
   const handleMessageUser = async (userId: string) => {
     if (!session?.user?.email) {
@@ -1278,13 +1308,22 @@ function MembersList({
                         Make Owner
                       </button>
                     )}
-                    {canTransferOwnership && member.role === RoomRole.MEMBER && !isCurrentUser && (
+                    {canChangeRoles && member.role === RoomRole.MEMBER && !isCurrentUser && (
                       <button
                         onClick={() => handlePromoteToModerator(member.user.id)}
                         className="px-2 py-1 text-xs bg-cyan-600 hover:bg-cyan-700 rounded"
                         title="Promote to moderator"
                       >
                         Make Moderator
+                      </button>
+                    )}
+                    {canChangeRoles && member.role === RoomRole.MODERATOR && !isCurrentUser && (
+                      <button
+                        onClick={() => handleDemoteToMember(member.user.id)}
+                        className="px-2 py-1 text-xs bg-slate-600 hover:bg-slate-700 rounded"
+                        title="Demote to member"
+                      >
+                        Make Member
                       </button>
                     )}
                     {canRemove && member.role !== RoomRole.OWNER && !isCurrentUser && (

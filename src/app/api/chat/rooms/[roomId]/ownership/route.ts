@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { assertRoomRole, getMembership } from '@/lib/rbac'
-import { RoomRole } from '@prisma/client'
+import { RoomRole, Role } from '@prisma/client'
 import { logAction } from '@/lib/audit'
 import { z } from 'zod'
 
@@ -33,15 +33,19 @@ export async function POST(
     // Get current user from DB
     const currentUser = await prisma.user.findUnique({
       where: { email: session.user.email || '' },
-      select: { id: true },
+      select: { id: true, role: true },
     })
 
     if (!currentUser) {
       return Response.json({ ok: false, code: 'USER_NOT_FOUND' }, { status: 404 })
     }
 
-    // Check if current user is owner
-    await assertRoomRole(currentUser.id, roomId, [RoomRole.OWNER], prisma)
+    const isAdmin = currentUser.role === Role.ADMIN
+
+    // Check if current user is owner or admin (both can transfer ownership)
+    if (!isAdmin) {
+      await assertRoomRole(currentUser.id, roomId, [RoomRole.OWNER], prisma)
+    }
 
     // Check if new owner is a member
     const newOwnerMembership = await getMembership(validated.newOwnerId, roomId, prisma)
@@ -60,29 +64,46 @@ export async function POST(
       )
     }
 
+    // Get current owner membership (if exists)
+    const currentOwnerMembership = await getMembership(currentUser.id, roomId, prisma)
+
     // Transfer ownership in a transaction
     await prisma.$transaction(async (tx) => {
-      // Demote current owner to moderator
-      await tx.roomMember.update({
-        where: {
-          userId_roomId: {
-            userId: currentUser.id,
-            roomId,
+      // Demote current owner to moderator (only if they're a member and not the new owner)
+      if (currentOwnerMembership && currentOwnerMembership.role === RoomRole.OWNER && validated.newOwnerId !== currentUser.id) {
+        await tx.roomMember.update({
+          where: {
+            userId_roomId: {
+              userId: currentUser.id,
+              roomId,
+            },
           },
-        },
-        data: { role: RoomRole.MODERATOR },
-      })
+          data: { role: RoomRole.MODERATOR },
+        })
+      }
 
       // Promote new owner
-      await tx.roomMember.update({
-        where: {
-          userId_roomId: {
+      const newOwnerMembership = await getMembership(validated.newOwnerId, roomId, prisma)
+      if (newOwnerMembership) {
+        await tx.roomMember.update({
+          where: {
+            userId_roomId: {
+              userId: validated.newOwnerId,
+              roomId,
+            },
+          },
+          data: { role: RoomRole.OWNER },
+        })
+      } else {
+        // If new owner is not a member, create membership as OWNER
+        await tx.roomMember.create({
+          data: {
             userId: validated.newOwnerId,
             roomId,
+            role: RoomRole.OWNER,
           },
-        },
-        data: { role: RoomRole.OWNER },
-      })
+        })
+      }
     })
 
     // Log action

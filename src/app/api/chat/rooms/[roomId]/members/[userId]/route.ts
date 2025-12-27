@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { assertRoomRole, getMembership } from '@/lib/rbac'
-import { RoomRole } from '@prisma/client'
+import { RoomRole, Role } from '@prisma/client'
 import { logAction } from '@/lib/audit'
 import { z } from 'zod'
 
@@ -27,15 +27,19 @@ export async function DELETE(
     // Get current user from DB
     const currentUser = await prisma.user.findUnique({
       where: { email: session.user.email || '' },
-      select: { id: true },
+      select: { id: true, role: true },
     })
 
     if (!currentUser) {
       return Response.json({ ok: false, code: 'USER_NOT_FOUND' }, { status: 404 })
     }
 
-    // Check if current user is owner (only owners can remove members)
-    await assertRoomRole(currentUser.id, roomId, [RoomRole.OWNER], prisma)
+    const isAdmin = currentUser.role === Role.ADMIN
+
+    // Check if current user is owner or admin (both can remove members)
+    if (!isAdmin) {
+      await assertRoomRole(currentUser.id, roomId, [RoomRole.OWNER], prisma)
+    }
 
     // Get target membership
     const targetMembership = await getMembership(userId, roomId, prisma)
@@ -127,15 +131,19 @@ export async function PATCH(
     // Get current user from DB
     const currentUser = await prisma.user.findUnique({
       where: { email: session.user.email || '' },
-      select: { id: true },
+      select: { id: true, role: true },
     })
 
     if (!currentUser) {
       return Response.json({ ok: false, code: 'USER_NOT_FOUND' }, { status: 404 })
     }
 
-    // Check if current user is owner (only owners can update member roles)
-    await assertRoomRole(currentUser.id, roomId, [RoomRole.OWNER], prisma)
+    const isAdmin = currentUser.role === Role.ADMIN
+
+    // Check if current user is owner or admin (both can update member roles)
+    if (!isAdmin) {
+      await assertRoomRole(currentUser.id, roomId, [RoomRole.OWNER], prisma)
+    }
 
     // Get target membership
     const targetMembership = await getMembership(userId, roomId, prisma)
