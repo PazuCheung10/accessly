@@ -58,7 +58,6 @@ MEMBER (1) < MODERATOR (2) < OWNER (3)
    - ✅ PUBLIC rooms - Can add participants
    - ✅ PRIVATE rooms - Can add participants
    - ✅ TICKET rooms - Can add participants
-   - ❌ DM rooms - Cannot add participants (only 2 members)
 
 ---
 
@@ -239,7 +238,6 @@ Admins have **absolute power** in all rooms:
 
 ## Notes
 
-- **DM rooms** are special - only 2 members, no role management
 - **External customers** can only access their own tickets (no admin override)
 - **Internal users/admins** can access tickets if they're members OR if they're admins
 - All role changes are logged in the audit log

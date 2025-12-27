@@ -852,7 +852,7 @@ src/
 │   │   │   │   │   └── route.ts # Get/update room details
 │   │   │   ├── messages/  # Message CRUD
 │   │   │   │   └── [messageId]/ # Message actions (edit, delete, reactions)
-│   │   │   └── dm/        # Direct message creation (disabled)
+│   │   │   └── (dm endpoint removed - no direct messages)
 │   │   ├── tickets/       # Issue management (admin)
 │   │   │   ├── route.ts   # List all issues, create issue
 │   │   │   └── [ticketId]/ # Issue operations (status, assign)
