@@ -41,6 +41,36 @@ const envSchema = z.object({
 
 // Parse and validate environment variables
 function getEnv() {
+  // During Next.js build, skip validation for required runtime vars
+  // They will be validated at runtime when the server starts
+  const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                      process.env.NEXT_PHASE === 'phase-development-build' ||
+                      process.env.NEXT_PHASE === 'phase-export' ||
+                      !process.env.DATABASE_URL // If DATABASE_URL is missing, we're likely in build
+
+  if (isBuildTime) {
+    // Return a partial env object for build time
+    // Required vars will be validated at runtime
+    return {
+      DATABASE_URL: process.env.DATABASE_URL || 'postgresql://placeholder:5432/db',
+      AUTH_SECRET: process.env.AUTH_SECRET || 'build-time-placeholder-secret',
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+      GITHUB_ID: process.env.GITHUB_ID,
+      GITHUB_SECRET: process.env.GITHUB_SECRET,
+      EMAIL_SERVER: process.env.EMAIL_SERVER,
+      EMAIL_FROM: process.env.EMAIL_FROM,
+      REDIS_URL: process.env.REDIS_URL,
+      PORT: Number(process.env.PORT) || 3000,
+      HOST: process.env.HOST || '0.0.0.0',
+      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      NODE_ENV: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development',
+      TICKET_AI_PROVIDER: process.env.TICKET_AI_PROVIDER as 'fake' | 'openai' | undefined,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      SENTRY_DSN: process.env.SENTRY_DSN,
+    }
+  }
+
+  // At runtime, validate all required variables
   const parsed = envSchema.safeParse({
     DATABASE_URL: process.env.DATABASE_URL,
     AUTH_SECRET: process.env.AUTH_SECRET,
