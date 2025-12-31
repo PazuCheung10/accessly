@@ -31,7 +31,9 @@ RUN node -e "const fs=require('fs');console.log('next-auth:',JSON.parse(fs.readF
 RUN node -e "const fs=require('fs');console.log('adapter:',JSON.parse(fs.readFileSync('node_modules/@auth/prisma-adapter/package.json')).version)"
 
 # Tell Prisma to use glibc engine (not MUSL)
-ENV PRISMA_CLI_QUERY_ENGINE_TYPE=libquery_engine-linux-glibc.so.node
+# CRITICAL: These env vars force Prisma to build for glibc (Debian/Render)
+ENV PRISMA_CLI_QUERY_ENGINE_TYPE="libquery_engine-linux-glibc"
+ENV PRISMAengines="debian-openssl-3.0.x"
 
 # Generate Prisma client in builder stage (before build, after source copy)
 # This will generate the correct glibc binary for Debian/Render
