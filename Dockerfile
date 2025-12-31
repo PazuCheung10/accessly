@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for Accessly
-FROM node:20-alpine AS base
+FROM node:20-bullseye AS base
 
 # Dependencies stage - install with frozen lockfile first
 FROM base AS deps
@@ -63,7 +63,6 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/pnpm-lock.yaml ./
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/server ./server
@@ -73,9 +72,9 @@ COPY --from=builder /app/postcss.config.js ./
 COPY --from=builder /app/tsconfig.json ./
 # Copy Prisma schema folder (needed for runtime)
 COPY --from=builder /app/src/prisma ./src/prisma
-# Copy standalone server.js to root
-COPY --from=builder /app/.next/standalone/server.js ./server.js
 
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 # Set permissions
 RUN chown -R nextjs:nodejs /app
 
