@@ -45,6 +45,20 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
+# Copy source files needed for seeding/debugging in Render Shell
+# These are needed for: pnpm db:seed-demo, scripts/check-db-users.js, etc.
+COPY --from=builder /app/src/data ./src/data
+COPY --from=builder /app/src/prisma ./src/prisma
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+
+# Install dev dependencies needed for seeding (tsx, prisma CLI)
+# These are required for: pnpm db:seed-demo, npx prisma db seed
+RUN corepack enable && corepack prepare pnpm@8.15.1 --activate && \
+    pnpm install --frozen-lockfile --prod=false --ignore-scripts && \
+    chown -R nextjs:nodejs /app
+
 USER nextjs
 
 EXPOSE 3000
