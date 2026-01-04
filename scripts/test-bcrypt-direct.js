@@ -22,8 +22,12 @@ const prisma = new PrismaClient()
     console.log('🔐 Hash prefix:', user.password.slice(0, 20))
     console.log('🔐 Hash length:', user.password.length)
 
+    const testPassword = 'demo123'
     console.log('\n🧪 Testing bcrypt.compare("demo123", hash)')
-    const result = await bcrypt.compare('demo123', user.password)
+    console.log('🔑 Raw password received:', JSON.stringify(testPassword))
+    console.log('🔑 Password length:', testPassword?.length)
+    
+    const result = await bcrypt.compare(testPassword, user.password)
     console.log('🔐 Result:', result ? '✅ TRUE' : '❌ FALSE')
 
     if (!result) {
