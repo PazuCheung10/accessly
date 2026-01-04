@@ -24,6 +24,15 @@ providers.push(
       try {
         console.log('🔍 Auth attempt started')
         
+        // DEBUG: Log raw password at the very beginning
+        const rawPassword = credentials?.password
+        console.log('🔑 Raw password received:', JSON.stringify(rawPassword))
+        if (typeof rawPassword === 'string') {
+          console.log('🔑 Password length:', rawPassword.length)
+        } else {
+          console.log('❌ Password is not a string:', typeof rawPassword)
+        }
+        
         // CRITICAL: Log DATABASE_URL to verify which database we're using
         const dbUrl = process.env.DATABASE_URL
         if (dbUrl) {
