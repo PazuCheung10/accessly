@@ -50,7 +50,7 @@ providers.push(
         /**
          * Normalize email
          */
-        const normalizedEmail = credentials.email.toLowerCase().trim()
+        const normalizedEmail = (credentials.email as string).toLowerCase().trim()
         console.log('📧 Normalized email:', normalizedEmail)
 
         /**
