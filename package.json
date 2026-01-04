@@ -22,6 +22,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "db:seed": "tsx src/data/seed.ts",
     "db:seed-demo": "tsx src/data/seed-demo.ts",
+    "db:seed-history": "tsx src/data/seed-history.ts",
     "db:check": "tsx src/data/check-memberships.ts",
     "db:diagnose": "tsx src/data/diagnose-chat.ts",
     "demo": "node scripts/demo-setup.mjs",

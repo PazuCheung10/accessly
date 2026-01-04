@@ -588,6 +588,10 @@ pnpm db:seed
 
 # Or seed with realistic demo data (creates 5–8 users, a dozen rooms, and dozens of issue replies)
 pnpm db:seed-demo
+
+# Add historical data for realistic demo experience (audit logs, additional tickets, staff analytics)
+# Run this after db:seed-demo to populate historical data
+pnpm db:seed-history
 ```
 
 **Demo Accounts:**
