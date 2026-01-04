@@ -207,15 +207,34 @@ After deployment, check Render logs for:
    - Email normalization issues
    - Password mismatch issues
 **Status**: ✅ FIXED - Detailed auth logging added for production debugging
-   - Logs database connection status
-   - Logs total user count in database
-   - Logs detailed error messages with stack traces
-2. This helps identify:
-   - Wrong database connection
-   - Empty database (0 users)
-   - Email normalization issues
-   - Password mismatch issues
-**Status**: ✅ FIXED - Detailed auth logging added
+
+### Issue #5: Bcrypt Library Verification & Password Comparison Debugging
+**Symptoms**:
+- Login fails with "Invalid email or password"
+- Suspected bcrypt library mismatch between seed and auth
+- Need to verify password comparison is working correctly
+
+**Root Cause Investigation**:
+- Verified both seed script and auth use the same bcrypt library
+- Both use `bcryptjs` (not native `bcrypt`)
+- Need debug logging to see actual `bcrypt.compare()` result
+
+**Fix Applied**:
+1. Verified library consistency:
+   - `src/lib/auth.ts`: `import bcrypt from 'bcryptjs'`
+   - `src/data/seed-demo.ts`: `import bcrypt from 'bcryptjs'`
+   - `package.json`: `"bcryptjs": "^3.0.3"`
+   - ✅ Both use the same library
+2. Added debug logging to `src/lib/auth.ts`:
+   - Logs bcrypt library name: `bcryptjs`
+   - Logs password hash prefix (first 7 chars, should be `$2b$10$`)
+   - Logs input password length
+   - Logs `bcrypt.compare()` result: `✅ TRUE` or `❌ FALSE`
+3. This helps identify:
+   - If password comparison is actually failing
+   - If there's a bcrypt library mismatch
+   - If password hash format is correct
+**Status**: ✅ FIXED - Debug logging added, both use `bcryptjs`
 
 ## Bugs Fixed in This Deployment
 
