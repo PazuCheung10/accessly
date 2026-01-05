@@ -229,14 +229,18 @@ async function main() {
       status = TicketStatus.RESOLVED
     }
 
-    // Random admin assignment
-    const assignedAdmin = admins[Math.floor(Math.random() * admins.length)]
+    // Admin creates ticket, but assign to regular user (more realistic)
+    // 60% assigned to regular users, 40% to admins (to ensure admins have some tickets for analytics)
+    const assignToRegularUser = Math.random() < 0.6
+    const assignee = assignToRegularUser
+      ? regularUsers[Math.floor(Math.random() * regularUsers.length)]
+      : admins[Math.floor(Math.random() * admins.length)]
+    
+    // Random admin creator
+    const creator = admins[Math.floor(Math.random() * admins.length)]
     
     // Create ticket at random time in past 90 days
     const createdAt = randomDateBetween(ninetyDaysAgo, now)
-
-    // Random creator (regular user)
-    const creator = regularUsers[Math.floor(Math.random() * regularUsers.length)]
 
     const ticket = await prisma.room.create({
       data: {
@@ -247,25 +251,25 @@ async function main() {
         status,
         ticketDepartment: department,
         isPrivate: true,
-        creatorId: creator.id,
+        creatorId: creator.id, // Admin creates ticket
         createdAt,
         updatedAt: createdAt,
       },
     })
 
-    // Add creator as member
+    // Admin creator is MODERATOR (can manage the ticket)
     await prisma.roomMember.create({
       data: {
         userId: creator.id,
         roomId: ticket.id,
-        role: RoomRole.MEMBER,
+        role: RoomRole.MODERATOR,
       },
     })
 
-    // Add assigned admin as OWNER
+    // Assigned user is OWNER (responsible for resolving)
     await prisma.roomMember.create({
       data: {
-        userId: assignedAdmin.id,
+        userId: assignee.id,
         roomId: ticket.id,
         role: RoomRole.OWNER,
       },
@@ -276,7 +280,7 @@ async function main() {
       name: ticketName,
       status,
       department,
-      assignedAdminId: assignedAdmin.id,
+      assignedAdminId: assignee.id, // Can be admin or regular user
       createdAt,
     })
 
@@ -303,11 +307,12 @@ async function main() {
       include: { user: { select: { id: true, role: true } } },
     })
 
-    const creator = members.find(m => m.role === RoomRole.MEMBER)?.user
-    const assignedAdmin = members.find(m => m.role === RoomRole.OWNER)?.user
+    // Creator is MODERATOR (admin), assignee is OWNER (can be admin or regular user)
+    const creator = members.find(m => m.role === RoomRole.MODERATOR)?.user
+    const assignee = members.find(m => m.role === RoomRole.OWNER)?.user
 
-    if (!creator || !assignedAdmin) {
-      console.log(`   ⚠️  Skipping ticket ${ticket.name} (missing creator or admin)`)
+    if (!creator || !assignee) {
+      console.log(`   ⚠️  Skipping ticket ${ticket.name} (missing creator or assignee)`)
       continue
     }
 
@@ -329,7 +334,8 @@ async function main() {
     for (let i = 0; i < messageCount; i++) {
       // First message is always from creator
       const isFirstMessage = i === 0
-      const sender = isFirstMessage ? creator : (Math.random() < 0.7 ? assignedAdmin : creator)
+      // First message from admin creator, rest from assignee
+      const sender = isFirstMessage ? creator : assignee
       
       // Time between messages: 1-48 hours
       const hoursSinceLast = 1 + Math.random() * 47
@@ -338,11 +344,11 @@ async function main() {
       // Don't create messages in the future
       if (messageTime > now) break
 
+      // First message is from admin creator with ticket description
+      // Subsequent messages are from assignee (whoever is OWNER)
       const content = isFirstMessage
         ? ticketDescriptions[Math.floor(Math.random() * ticketDescriptions.length)]
-        : sender.role === Role.ADMIN
-        ? staffResponses[Math.floor(Math.random() * staffResponses.length)]
-        : followUpMessages[Math.floor(Math.random() * followUpMessages.length)]
+        : staffResponses[Math.floor(Math.random() * staffResponses.length)]
 
       await prisma.message.create({
         data: {

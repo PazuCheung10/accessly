@@ -109,20 +109,43 @@ const dmMessages = [
   'Let me know if you need help with any tickets',
 ]
 
-const ticketMessages = [
-  'I\'m experiencing an issue with the login functionality',
-  'The app crashes when I try to upload a file',
-  'Can you help me reset my password?',
-  'I noticed a bug in the search feature',
-  'Is there a way to export my data?',
-]
-
-const ticketReplies = [
-  'Thanks for reporting this. Let me investigate.',
-  'I\'ve reproduced the issue and working on a fix.',
-  'This should be resolved in the next update.',
-  'Can you provide more details about when this happens?',
-  'I\'ll update you once we have a solution.',
+// Realistic ticket conversations
+const ticketConversations = [
+  // IT Support - Login Issue
+  {
+    initial: 'User reported they cannot log in after the latest update. They\'ve tried clearing cache and cookies but still getting authentication errors.',
+    responses: [
+      'Thanks for creating this ticket. I\'ll investigate the login issue right away.',
+      'I\'ve checked the logs and found the issue - it\'s related to session management after the update. Working on a fix now.',
+      'I\'ve deployed a hotfix. Can you ask the user to try logging in again?',
+    ],
+  },
+  // Billing - Subscription Question
+  {
+    initial: 'User has questions about their subscription charges. They see a charge but aren\'t sure what it\'s for.',
+    responses: [
+      'I\'ll review their account and billing history to clarify the charges.',
+      'I found the charge - it\'s for the annual plan upgrade they requested last month. I\'ve sent them a detailed breakdown via email.',
+      'User confirmed they understand now. Ticket can be closed.',
+    ],
+  },
+  // Product - Feature Request
+  {
+    initial: 'Feature request: User wants a dark mode toggle in settings. This has been requested multiple times.',
+    responses: [
+      'I\'ve added this to our product backlog. We\'ll discuss priority in the next sprint planning.',
+      'Update: This feature is now planned for Q2 release. I\'ll keep the user updated.',
+    ],
+  },
+  // IT Support - Password Reset
+  {
+    initial: 'User unable to reset password via email link. The link appears to expire too quickly or not arrive at all.',
+    responses: [
+      'I\'ll check the email delivery system and password reset flow.',
+      'Found the issue - email links were expiring after 15 minutes instead of 24 hours. I\'ve fixed the configuration.',
+      'I\'ve manually reset their password and sent them a new temporary password. They should be able to log in now.',
+    ],
+  },
 ]
 
 // Generate random timestamp within past week
@@ -446,17 +469,18 @@ async function main() {
   })
 
   // TICKET rooms with different departments
+  // Tickets are created by admins (as per business logic), but assigned to regular users
   // Using 'as any' to work around TypeScript types not including ticketDepartment until migration is run
   const ticketRoom1 = await prisma.room.create({
     data: {
       name: 'ticket-login-issue',
-      title: '[TICKET][Login] Cannot log in after latest update',
+      title: '[TICKET][IT Support] Cannot log in after latest update',
       description: 'User cannot log in after the latest update',
       type: RoomType.TICKET,
       isPrivate: true,
       status: TicketStatus.OPEN,
       ticketDepartment: TicketDepartment.IT_SUPPORT,
-      creatorId: user1.id,
+      creatorId: admin1.id, // Admin creates the ticket
       tags: ['ticket', 'bug', 'login'],
     } as any,
   })
@@ -470,7 +494,7 @@ async function main() {
       isPrivate: true,
       status: TicketStatus.OPEN,
       ticketDepartment: TicketDepartment.BILLING,
-      creatorId: user2.id,
+      creatorId: admin1.id, // Admin creates the ticket
       tags: ['ticket', 'billing', 'subscription'],
     } as any,
   })
@@ -478,13 +502,13 @@ async function main() {
   const ticketRoom3 = await prisma.room.create({
     data: {
       name: 'ticket-feature-request',
-      title: '[TICKET][Feature] Dark mode toggle request',
+      title: '[TICKET][Product] Dark mode toggle request',
       description: 'Request to add dark mode toggle in settings',
       type: RoomType.TICKET,
       isPrivate: true,
       status: TicketStatus.WAITING,
       ticketDepartment: TicketDepartment.PRODUCT,
-      creatorId: user3.id,
+      creatorId: admin2.id, // Admin creates the ticket
       tags: ['ticket', 'feature', 'ui'],
     } as any,
   })
@@ -492,13 +516,13 @@ async function main() {
   const ticketRoom4 = await prisma.room.create({
     data: {
       name: 'ticket-password-reset',
-      title: '[TICKET][Security] Need help resetting password',
+      title: '[TICKET][IT Support] Need help resetting password',
       description: 'Unable to reset password via email link',
       type: RoomType.TICKET,
       isPrivate: true,
       status: TicketStatus.OPEN,
       ticketDepartment: TicketDepartment.IT_SUPPORT,
-      creatorId: user1.id,
+      creatorId: admin2.id, // Admin creates the ticket
       tags: ['ticket', 'password', 'security'],
     } as any,
   })
@@ -634,20 +658,27 @@ async function main() {
   })
   console.log('   ✅ Private room members added (invite-only, admins not auto-added)')
 
-  // Ticket rooms: creator and assigned admin (tickets unchanged per requirements)
+  // Ticket rooms: Admin creates ticket (as MODERATOR), regular user is assigned (as OWNER)
+  // This matches the business logic: admins create tickets, but assign them to staff
   const ticketRooms = [ticketRoom1, ticketRoom2, ticketRoom3, ticketRoom4]
-  const ticketCreators = [user1, user4, user7, user1] // Updated to use correct user indices
-  const ticketAdmins = [admin1, admin1, admin2, admin2]
+  const ticketCreators = [admin1, admin1, admin2, admin2] // Admins create tickets
+  const ticketAssignees = [user1, user4, user7, user2] // Regular users are assigned (OWNER)
+  // ticketRoom1: IT_SUPPORT -> assign to user1 (Jacob, Engineering - can handle IT)
+  // ticketRoom2: BILLING -> assign to user4 (May, Billing head)
+  // ticketRoom3: PRODUCT -> assign to user7 (Ethan, Product head)
+  // ticketRoom4: IT_SUPPORT -> assign to user2 (Alex, Engineering)
   
   for (let i = 0; i < ticketRooms.length; i++) {
+    // Admin creator is MODERATOR (can manage the ticket)
     await prisma.roomMember.create({
-      data: { userId: ticketCreators[i].id, roomId: ticketRooms[i].id, role: RoomRole.MEMBER },
+      data: { userId: ticketCreators[i].id, roomId: ticketRooms[i].id, role: RoomRole.MODERATOR },
     })
+    // Assigned user is OWNER (responsible for resolving)
     await prisma.roomMember.create({
-      data: { userId: ticketAdmins[i].id, roomId: ticketRooms[i].id, role: RoomRole.OWNER },
+      data: { userId: ticketAssignees[i].id, roomId: ticketRooms[i].id, role: RoomRole.OWNER },
     })
   }
-  console.log(`   ✅ ${ticketRooms.length} ticket room members added`)
+  console.log(`   ✅ ${ticketRooms.length} ticket room members added (admins as creators, users as assignees)`)
 
   // External customer tickets removed - internal-only system
   console.log(`   ✅ External customer tickets removed (internal-only system)\n`)
@@ -724,35 +755,46 @@ async function main() {
 
   // DM room removed per requirements
 
-  // Ticket rooms: 1 main message per ticket + some replies
-  const ticketMainMessages: string[] = []
+  // Ticket rooms: Realistic conversations
+  // Admin creates ticket with description, assigned user responds and resolves
   for (let i = 0; i < ticketRooms.length; i++) {
+    const conversation = ticketConversations[i] || ticketConversations[0]
+    const ticketCreatedAt = randomPastWeekDate()
+    
+    // 1. Admin creates ticket with initial description
     const mainMessage = await prisma.message.create({
       data: {
         roomId: ticketRooms[i].id,
-        userId: ticketCreators[i].id, // Creator
-        content: randomMessage(ticketMessages),
-        createdAt: randomPastWeekDate(),
+        userId: ticketCreators[i].id, // Admin creator
+        content: conversation.initial,
+        createdAt: ticketCreatedAt,
       },
     })
-    ticketMainMessages.push(mainMessage.id)
     
-    // Add 2-3 replies per ticket
-    const replyCount = i === 0 ? 3 : 2 // First ticket gets 3 replies, others get 2
-    for (let j = 0; j < replyCount; j++) {
-      const replyUser = j % 2 === 0 ? ticketAdmins[i] : ticketCreators[i] // Alternate between admin and creator
-      await prisma.message.create({
+    // 2. Assigned user responds (1-3 hours later)
+    const firstResponseTime = new Date(ticketCreatedAt.getTime() + (1 + Math.random() * 2) * 60 * 60 * 1000)
+    let lastMessageId = mainMessage.id
+    let lastMessageTime = firstResponseTime
+    
+    for (let j = 0; j < conversation.responses.length; j++) {
+      const response = conversation.responses[j]
+      // Assigned user responds (they're the OWNER)
+      const responseMessage = await prisma.message.create({
         data: {
           roomId: ticketRooms[i].id,
-          userId: replyUser.id,
-          content: randomMessage(ticketReplies),
-          parentMessageId: mainMessage.id,
-          createdAt: randomPastWeekDate(),
+          userId: ticketAssignees[i].id, // Assigned user responds
+          content: response,
+          parentMessageId: lastMessageId,
+          createdAt: lastMessageTime,
         },
       })
+      
+      lastMessageId = responseMessage.id
+      // Next message 30 minutes to 2 hours later
+      lastMessageTime = new Date(lastMessageTime.getTime() + (30 + Math.random() * 90) * 60 * 1000)
     }
   }
-  console.log(`   ✅ Generated ${ticketRooms.length} ticket messages with replies`)
+  console.log(`   ✅ Generated realistic conversations for ${ticketRooms.length} tickets`)
 
   // Add messages to customer tickets (so they have content to display)
   // External customer ticket messages removed - internal-only system
