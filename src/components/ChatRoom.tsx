@@ -1192,8 +1192,8 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
         </div>
       </div>
 
-      {/* AI Assistant Panel - Hidden in demo mode */}
-      {/* <TicketAIAssistant roomId={roomId} /> */}
+      {/* AI Assistant Panel - Only for TICKET rooms, admin users */}
+      <TicketAIAssistant roomId={roomId} />
     </div>
   )
 }
