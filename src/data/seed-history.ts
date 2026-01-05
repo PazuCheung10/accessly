@@ -232,12 +232,24 @@ async function main() {
     // Admin creates ticket, but assign to regular user (more realistic)
     // 60% assigned to regular users, 40% to admins (to ensure admins have some tickets for analytics)
     const assignToRegularUser = Math.random() < 0.6
-    const assignee = assignToRegularUser
-      ? regularUsers[Math.floor(Math.random() * regularUsers.length)]
-      : admins[Math.floor(Math.random() * admins.length)]
     
     // Random admin creator
     const creator = admins[Math.floor(Math.random() * admins.length)]
+    
+    // Select assignee, ensuring it's different from creator when assignee is an admin
+    let assignee: typeof regularUsers[0] | typeof admins[0]
+    if (assignToRegularUser) {
+      assignee = regularUsers[Math.floor(Math.random() * regularUsers.length)]
+    } else {
+      // When assigning to admin, ensure it's different from creator
+      const availableAdmins = admins.filter(a => a.id !== creator.id)
+      if (availableAdmins.length === 0) {
+        // Fallback: if only one admin, assign to a regular user instead
+        assignee = regularUsers[Math.floor(Math.random() * regularUsers.length)]
+      } else {
+        assignee = availableAdmins[Math.floor(Math.random() * availableAdmins.length)]
+      }
+    }
     
     // Create ticket at random time in past 90 days
     const createdAt = randomDateBetween(ninetyDaysAgo, now)
@@ -267,13 +279,29 @@ async function main() {
     })
 
     // Assigned user is OWNER (responsible for resolving)
-    await prisma.roomMember.create({
-      data: {
-        userId: assignee.id,
-        roomId: ticket.id,
-        role: RoomRole.OWNER,
-      },
-    })
+    // Only create if assignee is different from creator
+    if (assignee.id !== creator.id) {
+      await prisma.roomMember.create({
+        data: {
+          userId: assignee.id,
+          roomId: ticket.id,
+          role: RoomRole.OWNER,
+        },
+      })
+    } else {
+      // If same person, update creator's role to OWNER (more important role)
+      await prisma.roomMember.update({
+        where: {
+          userId_roomId: {
+            userId: creator.id,
+            roomId: ticket.id,
+          },
+        },
+        data: {
+          role: RoomRole.OWNER,
+        },
+      })
+    }
 
     newTickets.push({
       id: ticket.id,
