@@ -527,7 +527,7 @@ async function main() {
 
     // Create status progression: OPEN -> WAITING -> RESOLVED
     const statuses: TicketStatus[] = [TicketStatus.OPEN, TicketStatus.WAITING, TicketStatus.RESOLVED]
-    let currentStatus = ticket.status
+    let currentStatus: TicketStatus = ticket.status || TicketStatus.OPEN
 
     for (let i = 0; i < statuses.length - 1; i++) {
       const currentIndex = statuses.indexOf(currentStatus)
