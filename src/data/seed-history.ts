@@ -281,13 +281,13 @@ async function main() {
     // Assigned user is OWNER (responsible for resolving)
     // Only create if assignee is different from creator
     if (assignee.id !== creator.id) {
-      await prisma.roomMember.create({
-        data: {
-          userId: assignee.id,
-          roomId: ticket.id,
-          role: RoomRole.OWNER,
-        },
-      })
+    await prisma.roomMember.create({
+      data: {
+        userId: assignee.id,
+        roomId: ticket.id,
+        role: RoomRole.OWNER,
+      },
+    })
     } else {
       // If same person, update creator's role to OWNER (more important role)
       await prisma.roomMember.update({

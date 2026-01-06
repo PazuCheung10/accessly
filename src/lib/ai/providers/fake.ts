@@ -102,9 +102,9 @@ export class FakeTicketAIProvider implements TicketAIProvider {
         suggestions.push(`I understand the frustration this technical issue is causing. I'm working on a fix and will update you as soon as I have more information.`)
       }
     } else if (dept === 'BILLING') {
-      if (hasBillingKeywords) {
-        suggestions.push(`I understand your concern about the billing issue. Let me review your account and payment history to resolve this for you.`)
-        suggestions.push(`I've checked your account and I can help you with this billing matter. Would you like me to process a refund or adjust the charges?`)
+    if (hasBillingKeywords) {
+      suggestions.push(`I understand your concern about the billing issue. Let me review your account and payment history to resolve this for you.`)
+      suggestions.push(`I've checked your account and I can help you with this billing matter. Would you like me to process a refund or adjust the charges?`)
         suggestions.push(`I've reviewed your billing statement and found the discrepancy. I'll process a credit to your account and send you an updated invoice.`)
       } else {
         suggestions.push(`Thank you for reaching out about your billing question. Let me review your account details and get back to you with a clear explanation.`)
@@ -117,20 +117,20 @@ export class FakeTicketAIProvider implements TicketAIProvider {
     } else {
       // GENERAL department
       if (hasSecurityKeywords) {
-        suggestions.push(`This is a security concern that requires immediate attention. I'm escalating this to our security team for review.`)
-        suggestions.push(`I take security issues seriously. Let me investigate this immediately and take appropriate action to protect your account.`)
-      } else if (hasUrgentKeywords || hasAngryKeywords) {
-        suggestions.push(`I understand this is urgent and I apologize for any inconvenience. Let me prioritize this and get you a resolution as quickly as possible.`)
-        suggestions.push(`I sincerely apologize for the frustration this has caused. I'm personally looking into this right now and will provide an update shortly.`)
-      } else {
-        suggestions.push(`Thank you for contacting us about "${room.title}". I understand your concern and I'm here to help. Let me investigate this issue for you.`)
-        suggestions.push(`I've reviewed your ticket and I can help you resolve this. Based on the information provided, I recommend the following steps...`)
+      suggestions.push(`This is a security concern that requires immediate attention. I'm escalating this to our security team for review.`)
+      suggestions.push(`I take security issues seriously. Let me investigate this immediately and take appropriate action to protect your account.`)
+    } else if (hasUrgentKeywords || hasAngryKeywords) {
+      suggestions.push(`I understand this is urgent and I apologize for any inconvenience. Let me prioritize this and get you a resolution as quickly as possible.`)
+      suggestions.push(`I sincerely apologize for the frustration this has caused. I'm personally looking into this right now and will provide an update shortly.`)
+    } else {
+      suggestions.push(`Thank you for contacting us about "${room.title}". I understand your concern and I'm here to help. Let me investigate this issue for you.`)
+      suggestions.push(`I've reviewed your ticket and I can help you resolve this. Based on the information provided, I recommend the following steps...`)
       }
     }
     
     // Add a general follow-up suggestion if we have space
     if (suggestions.length < 4) {
-      suggestions.push(`I appreciate your patience. I'm currently looking into this matter and will provide you with an update shortly.`)
+    suggestions.push(`I appreciate your patience. I'm currently looking into this matter and will provide you with an update shortly.`)
     }
 
     // Limit to 3-5 suggestions
@@ -278,7 +278,7 @@ export class FakeTicketAIProvider implements TicketAIProvider {
         if (dept === 'PRODUCT') {
           suggestions.unshift(`Thank you for the additional feedback. I've updated the feature request with your latest input.`)
         } else {
-          suggestions.unshift(`Thank you for the update. I'm reviewing the latest information and will respond shortly.`)
+        suggestions.unshift(`Thank you for the update. I'm reviewing the latest information and will respond shortly.`)
         }
       }
     }
