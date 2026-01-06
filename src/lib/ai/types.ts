@@ -3,9 +3,11 @@
  */
 export interface AIInsights {
   summary: string
+  summarySource: 'deterministic' | 'ai'
   suggestions: string[]
   escalation: {
     recommended: boolean
+    severity?: 'HIGH' | 'MEDIUM' | 'LOW'
     department?: string
     reason?: string
   }

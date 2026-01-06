@@ -136,24 +136,32 @@ export class FakeTicketAIProvider implements TicketAIProvider {
     // Limit to 3-5 suggestions
     const finalSuggestions = suggestions.slice(0, 5)
 
-    // Determine escalation
-    let escalation: { recommended: boolean; department?: string; reason?: string }
+    // Determine escalation with severity
+    let escalation: { recommended: boolean; severity?: 'HIGH' | 'MEDIUM' | 'LOW'; department?: string; reason?: string }
     if (needsEscalation) {
       let reason = ''
+      let severity: 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM'
+      
       if (hasSecurityKeywords) {
         reason = 'Security-related issue detected. Requires specialized security team review.'
+        severity = 'HIGH'
       } else if (hasUrgentKeywords) {
         reason = 'Customer indicates urgent issue. Consider escalating for faster resolution.'
+        severity = 'HIGH'
       } else if (hasAngryKeywords) {
         reason = 'Customer expresses frustration. Escalation may help de-escalate the situation.'
+        severity = 'MEDIUM'
       } else if (messageCount > 5 && isCustomerMessage) {
         reason = 'Multiple customer messages without resolution. Consider escalating to specialized team.'
+        severity = 'MEDIUM'
       } else {
         reason = 'Complex issue requiring specialized attention.'
+        severity = 'LOW'
       }
 
       escalation = {
         recommended: true,
+        severity,
         department: room.ticketDepartment || 'GENERAL',
         reason,
       }
@@ -165,6 +173,7 @@ export class FakeTicketAIProvider implements TicketAIProvider {
 
     return {
       summary,
+      summarySource: 'deterministic',
       suggestions: finalSuggestions,
       escalation,
     }
@@ -286,25 +295,33 @@ export class FakeTicketAIProvider implements TicketAIProvider {
       (room.status === 'OPEN' && newCustomerMessages.length > 2) ||
       (newCustomerMessages.length > 3)
 
-    let escalation: { recommended: boolean; department?: string; reason?: string }
+    let escalation: { recommended: boolean; severity?: 'HIGH' | 'MEDIUM' | 'LOW'; department?: string; reason?: string }
     
     if (newMessagesWarrantEscalation) {
       // New messages warrant escalation
       let reason = ''
+      let severity: 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM'
+      
       if (hasNewSecurityKeywords) {
         reason = 'Security-related issue detected in recent messages. Requires specialized security team review.'
+        severity = 'HIGH'
       } else if (hasNewUrgentKeywords) {
         reason = 'Customer indicates urgent issue in recent messages. Consider escalating for faster resolution.'
+        severity = 'HIGH'
       } else if (hasNewAngryKeywords) {
         reason = 'Customer expresses increased frustration in recent messages. Escalation may help de-escalate the situation.'
+        severity = 'MEDIUM'
       } else if (newCustomerMessages.length > 3) {
         reason = 'Multiple new customer messages without resolution. Consider escalating to specialized team.'
+        severity = 'MEDIUM'
       } else {
         reason = 'Recent messages indicate complex issue requiring specialized attention.'
+        severity = 'LOW'
       }
 
       escalation = {
         recommended: true,
+        severity,
         department: room.ticketDepartment || 'GENERAL',
         reason,
       }
@@ -320,6 +337,7 @@ export class FakeTicketAIProvider implements TicketAIProvider {
 
     return {
       summary: mergedSummary,
+      summarySource: 'deterministic',
       suggestions: finalSuggestions,
       escalation,
     }
