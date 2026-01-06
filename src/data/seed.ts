@@ -50,6 +50,7 @@ async function main() {
     where: { email: 'demo@accessly.com' },
     update: {
       password: demoObserverPassword, // Update password if user exists
+      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
     },
     create: {
       email: 'demo@accessly.com',
@@ -57,6 +58,7 @@ async function main() {
       emailVerified: new Date(),
       role: Role.DEMO_OBSERVER,
       password: demoObserverPassword,
+      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
     },
   })
   console.log('✅ Created demo observer user:', demoObserver.email)
