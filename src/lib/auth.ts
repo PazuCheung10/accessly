@@ -111,11 +111,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
     async session({ session, token }) {
       if (session.user && token) {
-        session.user.id = token.sub as string
-        session.user.role = token.role as Role
-        session.user.image = (token.image as string | null) ?? null
-        session.user.name = (token.name as string | null) ?? null
-        session.user.email = (token.email as string | null) ?? null
+        const user = session.user as {
+          id: string
+          email: string | null
+          name: string | null
+          image: string | null
+          role: Role
+        }
+        user.id = token.sub as string
+        user.role = token.role as Role
+        user.image = (token.image as string | null) ?? null
+        user.name = (token.name as string | null) ?? null
+        user.email = (token.email as string | null) ?? null
       }
       return session
     },
