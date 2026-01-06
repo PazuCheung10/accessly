@@ -23,7 +23,7 @@ export default async function Home({
   // Verify user exists in DB
   const dbUser = await prisma.user.findUnique({
     where: { email: session.user.email || '' },
-    select: { id: true, role: true },
+    select: { id: true, role: true, department: true },
   })
 
   if (!dbUser) {
@@ -124,20 +124,35 @@ export default async function Home({
       } : null,
     }))
 
-  // Also include PUBLIC rooms user is not a member of (simplified: all PUBLIC rooms visible)
-  // PRIVATE rooms are NOT included here (invite-only)
-  const memberRoomIds = new Set(myRooms.map((r) => r.id))
+  // For DEMO_OBSERVER: ONLY show rooms they're a member of (no additional rooms)
+  // For other users: also include PUBLIC rooms they're not a member of
+  const isDemoObserver = dbUser.role === 'DEMO_OBSERVER'
+  const isAdmin = dbUser.role === 'ADMIN'
   
-  const additionalRooms = await prisma.room.findMany({
-    where: {
-      type: RoomType.PUBLIC, // Only PUBLIC rooms (PRIVATE rooms are invite-only)
-      isPrivate: false,
-      // Exclude rooms user is already a member of
-      id: {
-        notIn: Array.from(memberRoomIds),
-      },
-      // Simplified: All PUBLIC rooms visible to all users (no department filtering)
-    },
+  let additionalRooms: any[] = []
+  if (!isDemoObserver) {
+    // Only fetch additional rooms for non-DEMO_OBSERVER users
+    const memberRoomIds = new Set(myRooms.map((r) => r.id))
+    
+    additionalRooms = await prisma.room.findMany({
+      where: {
+        type: RoomType.PUBLIC, // Only PUBLIC rooms (PRIVATE rooms are invite-only)
+        isPrivate: false,
+        // Exclude rooms user is already a member of
+        id: {
+          notIn: Array.from(memberRoomIds),
+        },
+        // For admins: show all PUBLIC rooms
+        // For non-admins: only show rooms matching their department or PUBLIC_GLOBAL
+        ...(isAdmin
+          ? {}
+          : {
+              OR: [
+                { department: dbUser.department as any }, // User's department
+                { department: null }, // PUBLIC_GLOBAL
+              ] as any,
+            }),
+      } as any,
     select: {
       id: true,
       name: true,

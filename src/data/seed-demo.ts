@@ -317,7 +317,9 @@ async function main() {
     where: { email: 'demo@accessly.com' },
     update: {
       password: demoObserverPassword,
+      name: 'Demo Observer',
       image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=demo',
+      role: Role.DEMO_OBSERVER, // Ensure role is set correctly
     },
     create: {
       email: 'demo@accessly.com',
@@ -718,6 +720,19 @@ async function main() {
   }
   console.log(`   ✅ Added DEMO_OBSERVER to ${publicGlobalRooms.length} PUBLIC_GLOBAL rooms`)
 
+  // Add to all PUBLIC department-specific rooms (so they can see all chat rooms)
+  const publicDepartmentRooms = [techRoom, billingRoom, productRoom, generalRoom2]
+  for (const room of publicDepartmentRooms) {
+    await prisma.roomMember.create({
+      data: {
+        userId: demoObserver.id,
+        roomId: room.id,
+        role: RoomRole.MEMBER,
+      },
+    })
+  }
+  console.log(`   ✅ Added DEMO_OBSERVER to ${publicDepartmentRooms.length} PUBLIC department rooms`)
+
   // Add to all ticket rooms (so they can see tickets and AI insights)
   for (const room of ticketRooms) {
     await prisma.roomMember.create({
@@ -730,15 +745,7 @@ async function main() {
   }
   console.log(`   ✅ Added DEMO_OBSERVER to ${ticketRooms.length} ticket rooms`)
 
-  // Add to one department room (Engineering) for variety
-  await prisma.roomMember.create({
-    data: {
-      userId: demoObserver.id,
-      roomId: techRoom.id,
-      role: RoomRole.MEMBER,
-    },
-  })
-  console.log(`   ✅ Added DEMO_OBSERVER to #engineering room`)
+  // Note: DEMO_OBSERVER is NOT added to PRIVATE rooms (like #leadership)
 
   // ============================================
   // STEP 4: Create Messages

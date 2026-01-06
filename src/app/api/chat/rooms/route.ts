@@ -70,6 +70,7 @@ export async function GET(request: Request) {
     }
 
     const isAdmin = dbUser.role === 'ADMIN'
+    const isDemoObserver = dbUser.role === 'DEMO_OBSERVER'
     
     // Check if user is external customer (they should ONLY see TICKET rooms)
     const userIsExternal = await isExternalCustomer(userId)
@@ -248,8 +249,24 @@ export async function GET(request: Request) {
         return false
       })
 
+    // For DEMO_OBSERVER: ONLY show rooms they're a member of (no additional rooms)
     // For non-admins: also include PUBLIC rooms matching their department that they're not members of
     // For admins: also include all PUBLIC rooms they're not members of
+    if (isDemoObserver) {
+      // DEMO_OBSERVER: Only return rooms they're explicitly a member of
+      const roomTypeSummary = 'DM and TICKET excluded (DEMO_OBSERVER - memberships only)'
+      console.log('GET /api/chat/rooms - Found', rooms.length, 'rooms for DEMO_OBSERVER', session.user.id, `(${roomTypeSummary})`)
+      
+      return Response.json({
+        ok: true,
+        code: 'SUCCESS',
+        message: 'Rooms retrieved successfully',
+        data: {
+          rooms: rooms,
+        },
+      })
+    }
+    
     const memberRoomIds = new Set(rooms.map((r) => r.id))
     
     const additionalRooms = await prisma.room.findMany({
