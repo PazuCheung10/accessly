@@ -708,30 +708,29 @@ async function main() {
   console.log(`   ✅ External customer tickets removed (internal-only system)\n`)
 
   // Add DEMO_OBSERVER to rooms for portfolio demo visibility
-  // Add to all PUBLIC_GLOBAL rooms (so they can see announcements and general content)
-  for (const room of publicGlobalRooms) {
-    await prisma.roomMember.create({
-      data: {
+  // Add to ALL PUBLIC rooms (both PUBLIC_GLOBAL and department-specific)
+  // This ensures DEMO_OBSERVER can access all PUBLIC rooms for demo purposes
+  const allPublicRooms = [...publicGlobalRooms, techRoom, billingRoom, productRoom, generalRoom2]
+  for (const room of allPublicRooms) {
+    // Use upsert to avoid errors if membership already exists
+    await prisma.roomMember.upsert({
+      where: {
+        userId_roomId: {
+          userId: demoObserver.id,
+          roomId: room.id,
+        },
+      },
+      update: {
+        role: RoomRole.MEMBER, // Ensure role is set correctly
+      },
+      create: {
         userId: demoObserver.id,
         roomId: room.id,
         role: RoomRole.MEMBER,
       },
     })
   }
-  console.log(`   ✅ Added DEMO_OBSERVER to ${publicGlobalRooms.length} PUBLIC_GLOBAL rooms`)
-
-  // Add to all PUBLIC department-specific rooms (so they can see all chat rooms)
-  const publicDepartmentRooms = [techRoom, billingRoom, productRoom, generalRoom2]
-  for (const room of publicDepartmentRooms) {
-    await prisma.roomMember.create({
-      data: {
-        userId: demoObserver.id,
-        roomId: room.id,
-        role: RoomRole.MEMBER,
-      },
-    })
-  }
-  console.log(`   ✅ Added DEMO_OBSERVER to ${publicDepartmentRooms.length} PUBLIC department rooms`)
+  console.log(`   ✅ Added DEMO_OBSERVER to ${allPublicRooms.length} PUBLIC rooms (all PUBLIC rooms)`)
 
   // Add to all ticket rooms (so they can see tickets and AI insights)
   for (const room of ticketRooms) {

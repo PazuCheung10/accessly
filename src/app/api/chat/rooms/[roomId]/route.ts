@@ -103,6 +103,7 @@ export async function GET(
     // Check if user is external customer
     const userIsExternal = await isExternalCustomer(dbUser.id)
     const isAdmin = dbUser.role === Role.ADMIN
+    const isDemoObserver = dbUser.role === ('DEMO_OBSERVER' as Role)
 
     // Check if user has access based on room type
     if (room.type === RoomType.PRIVATE) {
@@ -148,8 +149,8 @@ export async function GET(
         }, { status: 403 })
       }
       
-      if (!isAdmin) {
-        // Non-admin internal users: must match department or be PUBLIC_GLOBAL
+      if (!isAdmin && !isDemoObserver) {
+        // Non-admin, non-demo internal users: must match department or be PUBLIC_GLOBAL
         if (room.department !== null && room.department !== dbUser.department) {
           return Response.json({
             ok: false,
@@ -158,7 +159,7 @@ export async function GET(
           }, { status: 403 })
         }
       }
-      // Admins can access all PUBLIC rooms (no check needed)
+      // Admins and DEMO_OBSERVER can access all PUBLIC rooms (no check needed)
     }
 
     // For TICKET rooms, calculate response metrics

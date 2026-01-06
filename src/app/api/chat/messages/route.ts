@@ -128,6 +128,7 @@ async function GETHandler(request: Request) {
 
     const isTicketRoom = room.type === 'TICKET'
     const isAdmin = dbUser.role === Role.ADMIN
+    const isDemoObserver = dbUser.role === ('DEMO_OBSERVER' as Role)
     const hasMembership = !!membership
 
     // Check if user is external customer
@@ -179,8 +180,8 @@ async function GETHandler(request: Request) {
         }, { status: 200 }) // messages.test.ts expects 200 even on errors
       }
       
-      // Non-admin internal users: must match department or be PUBLIC_GLOBAL
-      if (!isAdmin && room.department !== null && room.department !== dbUser.department) {
+      // Non-admin, non-demo internal users: must match department or be PUBLIC_GLOBAL
+      if (!isAdmin && !isDemoObserver && room.department !== null && room.department !== dbUser.department) {
         return Response.json({
           ok: false,
           code: 'FORBIDDEN',
