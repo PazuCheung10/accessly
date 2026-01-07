@@ -14,6 +14,7 @@ export function Navbar() {
   const [loadingTimeout, setLoadingTimeout] = useState(false)
   const [isInternalUser, setIsInternalUser] = useState<boolean | null>(null)
   const [userDepartment, setUserDepartment] = useState<string | null>(null)
+  const [imageError, setImageError] = useState(false)
 
   // Add timeout to prevent infinite loading
   useEffect(() => {
@@ -45,6 +46,11 @@ export function Navbar() {
       setUserDepartment(null)
     }
   }, [status, session?.user?.email])
+
+  // Reset image error when user changes
+  useEffect(() => {
+    setImageError(false)
+  }, [session?.user?.image])
 
   const handleSignOut = async () => {
     await signOut({ redirect: false })
@@ -179,11 +185,12 @@ export function Navbar() {
             {/* User Avatar and Info - hide name/role at lg breakpoint, show only on xl+ */}
             <div className="hidden xl:flex items-center gap-2">
               {/* User Avatar */}
-              {session.user.image ? (
+              {session.user.image && !imageError ? (
                 <img
                   src={session.user.image}
                   alt={session.user.name || 'User avatar'}
                   className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-slate-700 flex-shrink-0"
+                  onError={() => setImageError(true)}
                 />
               ) : (
                 <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 text-xs md:text-sm font-medium flex-shrink-0">
@@ -216,11 +223,12 @@ export function Navbar() {
 
             {/* Avatar only - shown on lg screens (between sm and xl) */}
             <div className="hidden lg:flex xl:hidden">
-              {session.user.image ? (
+              {session.user.image && !imageError ? (
                 <img
                   src={session.user.image}
                   alt={session.user.name || 'User avatar'}
                   className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-slate-700 flex-shrink-0"
+                  onError={() => setImageError(true)}
                 />
               ) : (
                 <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 text-xs md:text-sm font-medium flex-shrink-0">
@@ -233,11 +241,12 @@ export function Navbar() {
 
             {/* Mobile: Just avatar */}
             <div className="lg:hidden">
-              {session.user.image ? (
+              {session.user.image && !imageError ? (
                 <img
                   src={session.user.image}
                   alt={session.user.name || 'User avatar'}
                   className="w-7 h-7 rounded-full border-2 border-slate-700 flex-shrink-0"
+                  onError={() => setImageError(true)}
                 />
               ) : (
                 <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 text-xs font-medium flex-shrink-0">

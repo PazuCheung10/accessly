@@ -81,6 +81,17 @@ export function HomePageClient({
     return true
   })
 
+  // Compute available tags based on filtered rooms (when a tag is selected, only show tags that co-occur with it)
+  const availableTagsForFilter = filters.tag
+    ? [filters.tag, ...Array.from(
+        new Set(
+          filteredRooms
+            .flatMap((r) => r.tags || [])
+            .filter((t) => t.length > 0 && t !== filters.tag)
+        )
+      )].sort()
+    : availableTags
+
   // Sort rooms
   const sortedRooms = [...filteredRooms].sort((a, b) => {
     switch (filters.sort) {
@@ -138,7 +149,7 @@ export function HomePageClient({
 
           {/* Filters */}
           <RoomFilters
-            availableTags={availableTags}
+            availableTags={availableTagsForFilter}
             onFilterChange={handleFilterChange}
           />
 

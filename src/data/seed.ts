@@ -51,7 +51,7 @@ async function main() {
     update: {
       password: demoObserverPassword, // Update password if user exists
       // Stable "girl" avatar for demo user
-      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sophia',
+      image: 'https://api.dicebear.com/7.x/avataaars/png?seed=sophia',
     },
     create: {
       email: 'demo@accessly.com',
@@ -60,7 +60,7 @@ async function main() {
       role: Role.DEMO_OBSERVER,
       password: demoObserverPassword,
       // Stable "girl" avatar for demo user
-      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sophia',
+      image: 'https://api.dicebear.com/7.x/avataaars/png?seed=sophia',
     },
   })
   console.log('✅ Created demo observer user:', demoObserver.email)

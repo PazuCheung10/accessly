@@ -368,7 +368,7 @@ async function main() {
       password: demoObserverPassword,
       name: 'Demo Observer',
       // Stable "girl" avatar for demo user
-      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sophia',
+      image: 'https://api.dicebear.com/7.x/avataaars/png?seed=sophia',
       role: Role.DEMO_OBSERVER, // Ensure role is set correctly
     },
     create: {
@@ -378,7 +378,7 @@ async function main() {
       role: Role.DEMO_OBSERVER,
       password: demoObserverPassword,
       // Stable "girl" avatar for demo user
-      image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sophia',
+      image: 'https://api.dicebear.com/7.x/avataaars/png?seed=sophia',
     },
   })
   console.log('✅ Created demo observer user:', demoObserver.email)

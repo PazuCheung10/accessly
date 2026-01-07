@@ -81,12 +81,20 @@ export function RoomFilters({ availableTags, onFilterChange }: RoomFiltersProps)
       {/* Filters Row */}
       <div className="flex flex-wrap items-center gap-4">
         {/* Tag Chips */}
-        <div className="flex flex-wrap items-center gap-2 flex-1">
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+          {selectedTag && (
+            <button
+              onClick={() => handleTagClick('')}
+              className="px-3 py-1.5 text-sm rounded-full bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors flex-shrink-0"
+            >
+              Clear filter
+            </button>
+          )}
           {availableTags.slice(0, 10).map((tag) => (
             <button
               key={tag}
               onClick={() => handleTagClick(tag)}
-              className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+              className={`px-3 py-1.5 text-sm rounded-full transition-colors flex-shrink-0 ${
                 selectedTag === tag
                   ? 'bg-cyan-600 text-white'
                   : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
@@ -95,26 +103,20 @@ export function RoomFilters({ availableTags, onFilterChange }: RoomFiltersProps)
               #{tag}
             </button>
           ))}
-          {selectedTag && (
-            <button
-              onClick={() => handleTagClick('')}
-              className="px-3 py-1.5 text-sm rounded-full bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
-            >
-              Clear filter
-            </button>
-          )}
         </div>
 
-        {/* Sort Dropdown */}
-        <select
-          value={sortBy}
-          onChange={(e) => handleSortChange(e.target.value)}
-          className="px-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 flex-shrink-0"
-        >
-          <option value="active">Most Active</option>
-          <option value="new">Newest</option>
-          <option value="members">Most Members</option>
-        </select>
+        {/* Sort Dropdown - fixed position to prevent jumping */}
+        <div className="flex-shrink-0">
+          <select
+            value={sortBy}
+            onChange={(e) => handleSortChange(e.target.value)}
+            className="px-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          >
+            <option value="active">Most Active</option>
+            <option value="new">Newest</option>
+            <option value="members">Most Members</option>
+          </select>
+        </div>
       </div>
     </div>
   )
