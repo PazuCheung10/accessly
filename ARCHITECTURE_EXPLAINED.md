@@ -1,6 +1,6 @@
 # Architecture Explained
 
-Accessly is a **single full-stack Next.js application** with a **custom Node.js server** to support Socket.io (long-lived WebSocket connections).
+Accessly is a **single full-stack Next.js application** (App Router) with a **custom Node.js server** to support Socket.io (long-lived WebSocket connections).
 
 ## High-level layout
 
@@ -9,6 +9,12 @@ Accessly is a **single full-stack Next.js application** with a **custom Node.js 
 - **Custom server**: `server/index.ts` (HTTP server + Socket.io)
 - **DB access**: `src/lib/prisma.ts` (Prisma client)
 - **Auth**: `src/lib/auth.ts` (NextAuth/Auth.js config)
+
+## Runtime model (how it actually runs)
+
+- **`pnpm dev`** runs the standard Next.js dev server (**no Socket.io**).
+- **`pnpm dev:server`** runs `server/index.ts` (Next + Socket.io) and is the recommended way to develop realtime features.
+- **`pnpm start`** also runs `server/index.ts` for production.
 
 ## Why a custom server?
 
@@ -32,6 +38,11 @@ Socket.io needs a persistent Node process to maintain connections, presence, and
 - Server emits events such as new messages, reactions, and presence changes
 - Redis adapter can be enabled for horizontal scaling (via `REDIS_URL`)
 
+## Security boundaries
+
+- **Auth**: NextAuth session (server-verified) gates protected pages and API routes.
+- **RBAC**: Role and membership checks happen **server-side** in route handlers (UI is a convenience, not security).
+
 ## State + performance strategy
 
 The app is optimized for “Slack-like” usability:
@@ -54,6 +65,3 @@ Two endpoints exist for different operational needs:
 - **Audit log**: `/admin/audit`
 - **Developer metrics**: `GET /api/dev/metrics` (dev mode or admin)
 - Optional Sentry integration via `SENTRY_DSN`
-
-
-
