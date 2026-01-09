@@ -21,9 +21,9 @@ import { stdin as input, stdout as output } from 'node:process'
 
 const CONFIRM_PHRASE = 'LOCKDOWN_PROD_PASSWORDS'
 const DEMO_EMAILS = new Set([
-  // Requested demo account email (login page copy)
+  // Current demo account email (standardized on solace.com)
   'demo@solace.com',
-  // Seeded demo observer email in this repo
+  // Legacy demo email (kept for safety in case old data exists)
   'demo@accessly.com',
 ])
 

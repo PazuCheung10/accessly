@@ -47,14 +47,14 @@ async function main() {
   // Create demo observer user (read-only for public demo)
   const demoObserverPassword = await bcrypt.hash('demo123', 10)
   const demoObserver = await prisma.user.upsert({
-    where: { email: 'demo@accessly.com' },
+    where: { email: 'demo@solace.com' },
     update: {
       password: demoObserverPassword, // Update password if user exists
       // Stable "girl" avatar for demo user
       image: '/avatars/demo-sophia.svg',
     },
     create: {
-      email: 'demo@accessly.com',
+      email: 'demo@solace.com',
       name: 'Demo Observer',
       emailVerified: new Date(),
       role: Role.DEMO_OBSERVER,

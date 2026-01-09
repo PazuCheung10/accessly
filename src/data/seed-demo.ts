@@ -363,7 +363,7 @@ async function main() {
   // Create demo observer user (read-only for public demo)
   const demoObserverPassword = await bcrypt.hash('demo123', 10)
   const demoObserver = await prisma.user.upsert({
-    where: { email: 'demo@accessly.com' },
+    where: { email: 'demo@solace.com' },
     update: {
       password: demoObserverPassword,
       name: 'Demo Observer',
@@ -372,7 +372,7 @@ async function main() {
       role: Role.DEMO_OBSERVER, // Ensure role is set correctly
     },
     create: {
-      email: 'demo@accessly.com',
+      email: 'demo@solace.com',
       name: 'Demo Observer',
       emailVerified: new Date(),
       role: Role.DEMO_OBSERVER,
@@ -387,7 +387,7 @@ async function main() {
 
   // Validate: All emails must be unique
   const emails = users.map(u => u.email)
-  emails.push('demo@accessly.com')
+  emails.push('demo@solace.com')
   if (new Set(emails).size !== emails.length) {
     throw new Error('❌ Duplicate emails found in seed data')
   }
