@@ -112,7 +112,7 @@ SolaceDesk provides a single place for internal teams to collaborate and manage 
 - **Server Layer**: Next.js API routes, Socket.io server, Prisma ORM
 - **Database Layer**: PostgreSQL with full-text search capabilities
 
-See [ARCHITECTURE_EXPLAINED.md](./ARCHITECTURE_EXPLAINED.md) for a deeper walkthrough.
+See [Architecture.md](./Architecture.md) for a deeper walkthrough.
 
 ### Data Flow
 
@@ -121,7 +121,7 @@ See [ARCHITECTURE_EXPLAINED.md](./ARCHITECTURE_EXPLAINED.md) for a deeper walkth
 3. **Database Change** → Socket.io Broadcast → All Connected Clients
 4. **Client Receives** → Zustand Store Update → UI Re-render
 
-See [ARCHITECTURE_EXPLAINED.md](./ARCHITECTURE_EXPLAINED.md) for details.
+See [Architecture.md](./Architecture.md) for details.
 
 ## Feature Tour
 
