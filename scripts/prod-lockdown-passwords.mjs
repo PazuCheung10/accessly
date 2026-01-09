@@ -23,8 +23,6 @@ const CONFIRM_PHRASE = 'LOCKDOWN_PROD_PASSWORDS'
 const DEMO_EMAILS = new Set([
   // Current demo account email (standardized on solace.com)
   'demo@solace.com',
-  // Legacy demo email (kept for safety in case old data exists)
-  'demo@accessly.com',
 ])
 
 function normalizeEmail(email) {
