@@ -161,8 +161,6 @@ MIT
 
 ⸻
 
-Built By
-
-Pazu
+Built By Pazu
 🔗 https://pazu.dev
 🔗 https://www.linkedin.com/in/PazuC
