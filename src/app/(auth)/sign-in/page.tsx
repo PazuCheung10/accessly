@@ -189,8 +189,18 @@ export default function SignInPage() {
         </div>
 
         {/* Footer */}
-        <div className="text-center text-xs text-slate-500">
+        <div className="text-center text-xs text-slate-500 space-y-1">
           <p>Enterprise collaboration platform</p>
+
+          <p>
+            This is a demo project ·{' '}
+            <Link
+              href="https://pazu.dev/projects/accessly"
+              className="underline underline-offset-2 hover:text-slate-300"
+            >
+              View case study
+            </Link>
+          </p>
         </div>
       </div>
     </div>
