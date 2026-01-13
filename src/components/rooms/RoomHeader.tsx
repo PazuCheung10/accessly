@@ -702,7 +702,7 @@ export function RoomHeader({ roomId, roomName }: RoomHeaderProps) {
                 value={editForm.title}
                 onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                 placeholder="Room title"
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white mb-2"
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white mb-2 text-base"
                 required
               />
               <textarea
