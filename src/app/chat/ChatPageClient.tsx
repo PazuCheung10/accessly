@@ -541,7 +541,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
       <div className="w-[19.2rem] bg-slate-900 border-r border-slate-800 flex flex-col h-full flex-shrink-0">
         <div className="p-4 md:p-3 lg:p-4 border-b border-slate-800 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg md:text-base lg:text-lg font-semibold">
+            <h2 className="text-sm md:text-base lg:text-lg font-semibold">
               {isExternalCustomer === true ? 'My Tickets' : 'Chat'}
             </h2>
             {isExternalCustomer !== true && (
@@ -561,7 +561,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
             <div className="flex gap-2">
               <button
                 onClick={() => setActiveTab('rooms')}
-                className={`flex-1 px-3 py-2 md:px-2 md:py-1.5 lg:px-3 lg:py-2 text-sm md:text-xs lg:text-sm font-medium rounded transition-colors ${
+                className={`flex-1 px-3 py-2 md:px-2 md:py-1.5 lg:px-3 lg:py-2 text-xs md:text-sm lg:text-base font-medium rounded transition-colors ${
                   activeTab === 'rooms'
                     ? 'bg-cyan-600 text-white'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -571,7 +571,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
               </button>
               <button
                 onClick={() => setActiveTab('tickets')}
-                className={`flex-1 px-3 py-2 md:px-2 md:py-1.5 lg:px-3 lg:py-2 text-sm md:text-xs lg:text-sm font-medium rounded transition-colors ${
+                className={`flex-1 px-3 py-2 md:px-2 md:py-1.5 lg:px-3 lg:py-2 text-xs md:text-sm lg:text-base font-medium rounded transition-colors ${
                   activeTab === 'tickets'
                     ? 'bg-cyan-600 text-white'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -676,19 +676,19 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
                       <div className="flex items-start justify-between mb-2 md:mb-1.5 lg:mb-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2 md:mb-1.5 lg:mb-2 flex-wrap">
-                            <h3 className="text-sm md:text-xs lg:text-sm font-semibold text-slate-200 truncate">
+                            <h3 className="text-xs md:text-sm lg:text-base font-semibold text-slate-200 truncate">
                               {cleanTitle(room.title || room.name)}
                             </h3>
                             {room.ticketDepartment && (
                               <span
-                                className={`px-2 py-0.5 md:px-1.5 md:py-0.5 lg:px-2 lg:py-0.5 text-xs md:text-[10px] lg:text-xs font-semibold rounded border flex-shrink-0 ${getDepartmentColor(room.ticketDepartment)}`}
+                                className={`px-2 py-0.5 md:px-1.5 md:py-0.5 lg:px-2 lg:py-0.5 text-[10px] md:text-xs lg:text-sm font-semibold rounded border flex-shrink-0 ${getDepartmentColor(room.ticketDepartment)}`}
                               >
                                 {getDepartmentLabel(room.ticketDepartment)}
                               </span>
                             )}
                             {room.status && (
                               <span
-                                className={`px-2 py-0.5 md:px-1.5 md:py-0.5 lg:px-2 lg:py-0.5 text-xs md:text-[10px] lg:text-xs rounded border flex-shrink-0 ${getStatusColor(room.status)}`}
+                                className={`px-2 py-0.5 md:px-1.5 md:py-0.5 lg:px-2 lg:py-0.5 text-[10px] md:text-xs lg:text-sm rounded border flex-shrink-0 ${getStatusColor(room.status)}`}
                               >
                                 {room.status}
                               </span>
@@ -699,13 +699,13 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
                       
                       {room.lastMessage && (
                         <div className="bg-slate-900/50 rounded p-2 md:p-1.5 lg:p-2 mb-2 md:mb-1.5 lg:mb-2">
-                          <p className="text-xs md:text-[10px] lg:text-xs text-slate-300 line-clamp-2">
+                          <p className="text-[10px] md:text-xs lg:text-sm text-slate-300 line-clamp-2">
                             {room.lastMessage.content}
                           </p>
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between text-xs md:text-[10px] lg:text-xs text-slate-500">
+                      <div className="flex items-center justify-between text-[10px] md:text-xs lg:text-sm text-slate-500">
                         <span>
                           {room._count?.messages || 0} {room._count?.messages === 1 ? 'message' : 'messages'}
                         </span>
@@ -784,7 +784,7 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
                             router.push(`/chat?${params.toString()}`, { scroll: false })
                           }
                         }}
-                      className={`w-full text-left px-3 py-2 md:px-2 md:py-1.5 lg:px-3 lg:py-2 rounded text-sm md:text-xs lg:text-sm transition-colors ${
+                      className={`w-full text-left px-3 py-2 md:px-2 md:py-1.5 lg:px-3 lg:py-2 rounded text-xs md:text-sm lg:text-base transition-colors ${
                         roomId === room.id
                           ? 'bg-cyan-600 text-white'
                           : 'bg-slate-800 hover:bg-slate-700'
@@ -794,19 +794,19 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
                         <div className="flex items-center justify-between">
                           <span className="truncate font-medium">{displayTitle}</span>
                           {room._count && (
-                            <span className="text-xs md:text-[10px] lg:text-xs opacity-70 flex-shrink-0 ml-2">
+                            <span className="text-[10px] md:text-xs lg:text-sm opacity-70 flex-shrink-0 ml-2">
                               {room._count.messages || 0}
                             </span>
                           )}
                         </div>
                         {room.lastMessage && (
                           <div className="flex items-center gap-2">
-                            <span className="text-xs md:text-[10px] lg:text-xs opacity-60 truncate flex-1">
+                            <span className="text-[10px] md:text-xs lg:text-sm opacity-60 truncate flex-1">
                               {room.lastMessage.user?.name || 'Someone'}: {room.lastMessage.content.length > 50 
                                 ? room.lastMessage.content.slice(0, 50) + '...'
                                 : room.lastMessage.content}
                             </span>
-                            <span className="text-xs md:text-[10px] lg:text-xs opacity-50 flex-shrink-0">
+                            <span className="text-[10px] md:text-xs lg:text-sm opacity-50 flex-shrink-0">
                               {new Date(room.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
