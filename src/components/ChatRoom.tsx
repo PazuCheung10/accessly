@@ -861,7 +861,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   return (
     <div className="flex h-full bg-slate-950 min-h-0">
       {/* Main Chat Area */}
-      <div className="flex flex-col flex-1 min-w-0 min-h-0">
+      <div className="flex flex-col flex-1 min-w-0 min-h-0 relative">
         {/* Header with room details, badges, and actions */}
         <RoomHeader roomId={roomId} roomName={roomName} />
         <div className="px-6 pb-2 border-b border-slate-800 flex-shrink-0">
@@ -879,7 +879,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
         <div
           ref={messagesContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0"
+          className="flex-1 overflow-y-auto px-6 pt-6 pb-20 space-y-4 min-h-0"
           style={{ 
             scrollBehavior: 'auto',
             visibility: isRestoringScroll ? 'hidden' : 'visible'
@@ -977,7 +977,23 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
                 )
               })
             })()}
-            {/* Typing indicator removed to prevent scroll position issues */}
+            
+            {/* Typing indicator - in scroll flow (not absolute) */}
+            {typingUsers.size > 0 && (
+              <div className="mt-2 mb-2">
+                <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800/95 rounded-lg px-3 py-1.5">
+                  <div className="flex gap-0.5">
+                    <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                  <span>
+                    {Array.from(typingUsers.values())[0]} is typing...
+                  </span>
+                </div>
+              </div>
+            )}
+            
             <div ref={messagesEndRef} />
           </>
         )}
