@@ -357,7 +357,7 @@ async function POSTHandler(request: Request) {
       const io = getIO()
       if (io) {
         try {
-          io.to(body.data.roomId).emit('message:new', {
+          const messageData = {
             id: body.data.id,
             roomId: body.data.roomId,
             userId: body.data.userId,
@@ -368,7 +368,19 @@ async function POSTHandler(request: Request) {
             deletedAt: body.data.deletedAt?.toISOString() || null,
             reactions: body.data.reactions || null,
             user: body.data.user,
-          })
+          }
+          
+          // Emit to all sockets in the room (including the sender)
+          io.to(body.data.roomId).emit('message:new', messageData)
+          
+          // Log for debugging (development only)
+          if (process.env.NODE_ENV !== 'production') {
+            const socketsInRoom = await io.in(body.data.roomId).fetchSockets()
+            logger.info(
+              { routeName: 'POST /api/chat/messages', roomId: body.data.roomId },
+              `Emitted message:new to room ${body.data.roomId} (${socketsInRoom.length} sockets)`
+            )
+          }
         } catch (socketError) {
           logger.error(
             { routeName: 'POST /api/chat/messages', roomId: body.data.roomId },
@@ -376,6 +388,11 @@ async function POSTHandler(request: Request) {
             { action: 'socket_emit_failed' }
           )
         }
+      } else {
+        logger.warn(
+          { routeName: 'POST /api/chat/messages', roomId: body.data.roomId },
+          'Socket.io instance not available'
+        )
       }
     }
 

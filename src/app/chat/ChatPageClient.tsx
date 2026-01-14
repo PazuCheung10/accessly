@@ -405,9 +405,28 @@ export default function ChatPageClient({ initialRoomId }: ChatPageClientProps) {
     const socket = initSocket(session.user.id)
 
     // Join all rooms the user is a member of
-    myRooms.forEach((room) => {
-      socket.emit('room:join', { roomId: room.id, userId: session.user.id })
-    })
+    const joinAllRooms = () => {
+      if (socket.connected) {
+        myRooms.forEach((room) => {
+          socket.emit('room:join', { roomId: room.id, userId: session.user.id })
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('🔌 Joining room via socket (ChatPageClient):', { roomId: room.id, userId: session.user.id, socketId: socket.id })
+          }
+        })
+      } else {
+        // Wait for connection before joining
+        socket.once('connect', () => {
+          myRooms.forEach((room) => {
+            socket.emit('room:join', { roomId: room.id, userId: session.user.id })
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('🔌 Joined room after connection (ChatPageClient):', { roomId: room.id, userId: session.user.id, socketId: socket.id })
+            }
+          })
+        })
+      }
+    }
+    
+    joinAllRooms()
 
     const handleMessageNew = (message: any) => {
       // Validate message structure

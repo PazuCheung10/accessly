@@ -322,6 +322,26 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     if (!session?.user?.id) return
 
     const socket = initSocket(session.user.id)
+    
+    // Ensure socket is connected before joining room
+    const joinRoom = () => {
+      if (socket.connected) {
+        socket.emit('room:join', { roomId, userId: session.user.id })
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('🔌 Joining room via socket:', { roomId, userId: session.user.id, socketId: socket.id })
+        }
+      } else {
+        // Wait for connection before joining
+        socket.once('connect', () => {
+          socket.emit('room:join', { roomId, userId: session.user.id })
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('🔌 Joined room after connection:', { roomId, userId: session.user.id, socketId: socket.id })
+          }
+        })
+      }
+    }
+    
+    joinRoom()
 
     const handleMessageNew = (m: Msg) => {
       if (m.roomId !== roomId) return
@@ -354,7 +374,9 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
       const wasAtBottom = el ? isNearBottom(el, 100) : true
       
       // Check if message is from current user (they just sent it, always scroll)
-      const isOwnMessage = m.userId === currentUserId || m.userId === session.user?.id
+      // Compare with both currentUserId (DB ID) and session.user.id (session ID) to handle both cases
+      const isOwnMessage = m.userId === currentUserId || m.userId === session.user?.id || 
+                          (m.user?.id && (m.user.id === currentUserId || m.user.id === session.user?.id))
 
       upsertMessages(roomId, [m])
 
@@ -491,7 +513,6 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     socket.on('message:reaction', handleMessageReaction)
     socket.on('typing:start', handleTypingStart)
     socket.on('typing:stop', handleTypingStop)
-    socket.emit('room:join', { roomId, userId: session.user.id })
 
     return () => {
       socket.off('message:new', handleMessageNew)
@@ -915,11 +936,23 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
         setRoom(roomId, { messages: filtered })
       }
       
-      // Scroll to bottom after adding message
+      // Scroll to bottom after adding message (wait for DOM update)
       const el = messagesContainerRef.current
       if (el) {
-        scrollToBottom(el)
-        setRoom(roomId, { scrollTop: el.scrollTop })
+        // Use requestAnimationFrame to ensure DOM has updated before scrolling
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const elAfterUpdate = messagesContainerRef.current
+            if (elAfterUpdate) {
+              // Force reflow to ensure scrollHeight is accurate
+              void elAfterUpdate.offsetHeight
+              // Scroll to bottom
+              elAfterUpdate.scrollTop = elAfterUpdate.scrollHeight
+              // Save scroll position
+              setRoom(roomId, { scrollTop: elAfterUpdate.scrollTop })
+            }
+          })
+        })
       }
     } catch (err: any) {
       // Remove optimistic message on error

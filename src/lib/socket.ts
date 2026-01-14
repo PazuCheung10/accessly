@@ -18,6 +18,12 @@ export function initSocket(userId: string): Socket {
     return socket
   }
 
+  // If socket exists but not connected, try to reconnect
+  if (socket && !socket.connected) {
+    socket.connect()
+    return socket
+  }
+
   socket = io(window.location.origin, {
     path: '/socket.io',
     transports: ['websocket', 'polling'],
@@ -46,6 +52,10 @@ export function initSocket(userId: string): Socket {
 
   socket.on('reconnect_attempt', (attemptNumber) => {
     console.log(`🔄 Socket reconnection attempt ${attemptNumber}`)
+  })
+
+  socket.on('reconnect', () => {
+    console.log('✅ Socket reconnected:', socket?.id)
   })
 
   socket.on('reconnect_failed', () => {
