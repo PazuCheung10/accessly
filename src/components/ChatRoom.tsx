@@ -88,13 +88,19 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   const isRestoringScrollRef = useRef(false) // Track if we're restoring scroll
   const isInitialFetchingRef = useRef(false) // Track if we're doing the initial fetch for this room
 
-  // Helper: Snap to bottom using scrollIntoView
-  const snapToBottom = () => {
+  // Centralized scroll function - use this everywhere
+  const scrollToBottomIfNeeded = (should: boolean) => {
+    if (!should) return
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         messagesEndRef.current?.scrollIntoView({ block: 'end', behavior: 'auto' })
       })
     })
+  }
+  
+  // Helper for initial fetch (hard guarantee)
+  const snapToBottom = () => {
+    scrollToBottomIfNeeded(true)
   }
 
   // Keep inputRef in sync with input state
@@ -149,12 +155,14 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     }
   }, [roomId, setRoom])
 
-  // 3) Restore scroll ONLY on room change - never based on messages
+  // RESTORE AUTHORITY: Room Navigation
+  // Rule: Restore scroll position from cache once when room identity changes
+  // Invariant: Restore never reacts to messages, socket events, or message length
   useLayoutEffect(() => {
     const el = messagesContainerRef.current
     if (!el) return
 
-    // Only restore when room changes
+    // Only restore when room changes (navigation concern)
     if (prevRoomIdRef.current === roomId) return
 
     const saved = room?.scrollTop
@@ -163,6 +171,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     }
 
     prevRoomIdRef.current = roomId
+    // After restore completes, UI is "stable" and Restore authority is relinquished
   }, [roomId])
 
 
@@ -219,51 +228,39 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
         })
       }
       
-      // Check if message already exists (from optimistic update or previous socket event)
-      const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
-      const exists = currentMessages.some((msg: Msg) => msg.id === m.id)
+      // SNAP AUTHORITY: New message handling
+      // Rule: Scroll decisions are based on user intent BEFORE data changes
       
-      // Check scroll position BEFORE adding message (snapshot user intent)
+      // Step A: Snapshot user intent ONCE (before any mutation)
+      const currentMessages = useChatStore.getState().rooms[roomId]?.messages ?? []
       const el = messagesContainerRef.current
-      const shouldStick = el ? isNearBottom(el, 120) : true
+      const wasAtBottom = el ? isNearBottom(el, 120) : true
       const wasEmptyRoom = currentMessages.length === 0
       
-      // Check if message is from current user (they just sent it, always scroll)
+      // Step B: Compute sender intent (WhatsApp style - sender always scrolls)
       const isOwnMessage = m.userId === currentUserId || m.userId === session.user?.id || 
                           (m.user?.id && (m.user.id === currentUserId || m.user.id === session.user?.id))
       
-      // ✅ If message already exists (inserted by ChatPageClient),
-      // still check if we should scroll (user was at bottom or it's their message)
-      if (exists) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('⚠️ Message already exists, skipping socket update but checking scroll:', m.id)
-        }
-        // Only scroll if user was at bottom or it's their own message
-        if (isOwnMessage || shouldStick || wasEmptyRoom) {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              messagesEndRef.current?.scrollIntoView({ block: 'end' })
-            })
-          })
-        }
-        return
+      // Step C: Dedupe WITHOUT skipping scroll
+      const exists = currentMessages.some((msg: Msg) => msg.id === m.id)
+      let didInsert = false
+      
+      if (!exists) {
+        upsertMessages(roomId, [m])
+        didInsert = true
       }
-
-      upsertMessages(roomId, [m])
-
-      // If it's a reply and the thread is expanded, auto-expand if not already
+      
+      // Auto-expand thread if needed
       if (m.parentMessageId && !isThreadExpanded(roomId, m.parentMessageId)) {
         toggleThread(roomId, m.parentMessageId)
       }
-
-      // Scroll to bottom only if user was at bottom, it's their message, or room was empty
-      if (isOwnMessage || shouldStick || wasEmptyRoom || (m.parentMessageId && isThreadExpanded(roomId, m.parentMessageId))) {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            messagesEndRef.current?.scrollIntoView({ block: 'end' })
-          })
-        })
-      }
+      
+      // Compute shouldAutoScroll: ONE rule for everything
+      const shouldAutoScroll = isOwnMessage || wasAtBottom || wasEmptyRoom
+      
+      // Execute scroll behavior (regardless of whether message existed)
+      // Critical: Deduplication must never cancel UI reaction
+      scrollToBottomIfNeeded(shouldAutoScroll)
     }
 
     const handleMessageEdit = (data: { id: string; roomId: string; content: string; editedAt: string }) => {
@@ -390,7 +387,9 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
 
       if (older.length === 0) return
 
-      // Prepend older with anchored scroll (preserves viewport)
+      // PRESERVE AUTHORITY: Pagination
+      // Rule: Anchor scroll position relative to viewport when prepending older messages
+      // Invariant: Pagination preserves context, not intent. Never snap to bottom or restore cached scroll.
       preserveScrollOnPrepend(el, () => {
         upsertMessages(roomId, older, { asPrepend: true })
       })
@@ -425,25 +424,16 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
 
       if (!newer.length) return
 
+      // SNAP AUTHORITY: Newer messages from API
+      // Follow same pattern: snapshot intent, compute shouldAutoScroll, mutate, then scroll
+      const el = messagesContainerRef.current
+      const wasAtBottom = el ? isNearBottom(el, 100) : true
+      const shouldAutoScroll = isInitialEntry || wasAtBottom
+      
       upsertMessages(roomId, newer)
 
-      // If this is an initial entry (user just entered the room), always scroll to bottom
-      // Otherwise, only scroll if user was already at bottom
-      const el = messagesContainerRef.current
-      if (el) {
-        if (isInitialEntry || isNearBottom(el, 100)) {
-          // Wait for DOM to update, then scroll to bottom
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              const elAfterUpdate = messagesContainerRef.current
-              if (elAfterUpdate) {
-                elAfterUpdate.scrollTop = elAfterUpdate.scrollHeight
-                setRoom(roomId, { scrollTop: elAfterUpdate.scrollTop })
-              }
-            })
-          })
-        }
-      }
+      // Execute scroll behavior if needed
+      scrollToBottomIfNeeded(shouldAutoScroll)
     } catch (err) {
       console.error('Error fetching newer messages:', err)
     }
@@ -688,7 +678,8 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     }
 
     upsertMessages(roomId, [optimisticMessage])
-    snapToBottom()
+    // Sender messages always scroll (WhatsApp style)
+    scrollToBottomIfNeeded(true)
 
     try {
       const response = await fetch('/api/chat/messages', {
@@ -780,8 +771,8 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
         setRoom(roomId, { messages: filtered })
       }
       
-      // Scroll to bottom after API success
-      snapToBottom()
+      // Scroll to bottom after API success (sender message)
+      scrollToBottomIfNeeded(true)
     } catch (err: any) {
       // Remove optimistic message on error
       const currentMessages = room?.messages ?? []
