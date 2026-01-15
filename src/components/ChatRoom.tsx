@@ -69,6 +69,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   const [showToast, setShowToast] = useState(false)
   const [isRestoringScroll, setIsRestoringScroll] = useState(false)
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map()) // userId -> userName
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false)
 
   // Get current user ID - need to fetch from DB to match message user IDs
   const [currentUserId, setCurrentUserId] = useState<string | null>(session?.user?.id ?? null)
@@ -105,6 +106,8 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
   const [isLoadingOlder, setIsLoadingOlder] = useState(false) // For pagination indicator
   const isRestoringScrollRef = useRef(false) // Track if we're restoring scroll
   const isInitialFetchingRef = useRef(false) // Track if we're doing the initial fetch for this room
+  const isScrollingToBottomRef = useRef(false) // Track if we're programmatically scrolling to bottom
+  const hasCheckedInitialScrollRef = useRef(false) // Track if we've done initial scroll check
 
   // Centralized scroll function - use this everywhere
   const scrollToBottomIfNeeded = (should: boolean) => {
@@ -187,11 +190,22 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     const saved = room?.scrollTop
     if (saved != null) {
       el.scrollTop = saved
+      // Check button visibility after restoring scroll position
+      requestAnimationFrame(() => {
+        const nearBottom = isNearBottom(el, 120)
+        setShowScrollToBottom(!nearBottom)
+      })
+    } else {
+      // No saved scroll, check if we're at bottom
+      requestAnimationFrame(() => {
+        const nearBottom = isNearBottom(el, 120)
+        setShowScrollToBottom(!nearBottom)
+      })
     }
 
     prevRoomIdRef.current = roomId
     // After restore completes, UI is "stable" and Restore authority is relinquished
-  }, [roomId])
+  }, [roomId, room?.scrollTop])
 
 
   // 4.3 Initial fetch if needed
@@ -383,9 +397,44 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
 
   // 4.5 Track user scroll → remember per-room
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    
+    // Always update scroll-to-bottom button visibility based on scroll position
+    // (even before full initialization, so button can appear on initial load)
+    
+    // Skip update if we're programmatically scrolling to bottom
+    if (isScrollingToBottomRef.current) {
+      const nearBottom = isNearBottom(el, 120)
+      if (nearBottom) {
+        // Reached bottom, reset flag and hide button
+        isScrollingToBottomRef.current = false
+        setShowScrollToBottom(false)
+      }
+      return
+    }
+    
+    const nearBottom = isNearBottom(el, 120)
+    setShowScrollToBottom(!nearBottom)
+    
+    // Only save scroll position after initialization
     if (!hasInitialisedRef.current) return
     // Commented out to prevent scroll fights - will save on unmount/room switch only
-    // useChatStore.getState().setRoom(roomId, { scrollTop: e.currentTarget.scrollTop })
+    // useChatStore.getState().setRoom(roomId, { scrollTop: el.scrollTop })
+  }
+
+  // Handle scroll-to-bottom button click
+  const handleScrollToBottom = () => {
+    isScrollingToBottomRef.current = true
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    // Button will be hidden by scroll handler when we reach the bottom
+    // Also set a timeout as fallback in case scroll events don't fire
+    setTimeout(() => {
+      isScrollingToBottomRef.current = false
+      const el = messagesContainerRef.current
+      if (el && isNearBottom(el, 120)) {
+        setShowScrollToBottom(false)
+      }
+    }, 1000)
   }
 
   // 4.6 Pagination: load older (on demand or when top sentinel enters view)
@@ -622,6 +671,10 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
             hasInitialisedRef.current = true
             // Update prevRoomIdRef after initial fetch completes
             prevRoomIdRef.current = roomId
+            
+            // Check initial scroll position for button visibility
+            const nearBottom = isNearBottom(el, 120)
+            setShowScrollToBottom(!nearBottom)
             
             // Optional: immediately poll for any very-new messages
             void fetchNewerAfter()
@@ -996,6 +1049,36 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
             <div ref={messagesEndRef} />
           </>
         )}
+        </div>
+
+        {/* Scroll to Bottom Button - WhatsApp style */}
+        <div
+          className={`absolute z-[100] transition-all duration-200 ${
+            showScrollToBottom ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+          style={{
+            bottom: 'calc(6rem + 10px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <button
+            onClick={handleScrollToBottom}
+            className="w-12 h-12 bg-slate-800/80 hover:bg-slate-700/80 backdrop-blur-sm rounded-full shadow-xl flex items-center justify-center text-white transition-all duration-200 hover:scale-110 border border-slate-600/50"
+            aria-label="Scroll to bottom"
+            title="Scroll to bottom"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+              className="w-6 h-6"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
+            </svg>
+          </button>
         </div>
 
         {/* Input - stays stable when switching rooms */}
