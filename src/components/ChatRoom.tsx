@@ -15,6 +15,24 @@ import { TicketAIAssistant } from './ai/TicketAIAssistant'
 // Store unsent messages per room (outside component to persist across re-renders)
 const unsentMessages: Record<string, string> = {}
 
+// Typing row component - part of message list flow
+// Always renders to prevent layout shift, but only visible when users are typing
+function TypingRow({ users }: { users: string[] }) {
+  const hasUsers = users.length > 0
+
+  return (
+    <div className={`h-1 flex items-center text-xs text-slate-400 px-2 ${hasUsers ? '' : 'invisible'}`}>
+      <span>
+        {hasUsers && (
+          <>
+            {users.join(', ')} {users.length === 1 ? 'is' : 'are'} typing…
+          </>
+        )}
+      </span>
+    </div>
+  )
+}
+
 interface ChatRoomProps {
   roomId: string
   roomName: string
@@ -94,6 +112,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         messagesEndRef.current?.scrollIntoView({ block: 'end', behavior: 'auto' })
+        const el = messagesContainerRef.current
       })
     })
   }
@@ -301,7 +320,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
 
     const handleTypingStart = (data: { userId: string; userName: string }) => {
       if (data.userId === currentUserId || data.userId === session.user?.id) return
-      
+
       // Clear existing timeout for this user
       const existingTimeout = typingTimeouts.current.get(data.userId)
       if (existingTimeout) {
@@ -787,39 +806,34 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
     }
   }
 
-  // Handle typing indicator with debounce
+  // Handle typing indicator - emit on user intent changes
   const emitTyping = () => {
     if (!session?.user?.id) return
 
     const socket = getSocket(session.user.id)
-
     const now = Date.now()
-    // Throttle typing events to max once per 3 seconds
-    if (now - lastTypingEmitRef.current < 3000) return
 
+    // Throttle: once every 3s
+    if (now - lastTypingEmitRef.current < 3000) return
     lastTypingEmitRef.current = now
-    
-    if (process.env.NODE_ENV !== 'production') {
-    }
-    
+
     socket.emit('typing:start', {
       roomId,
       userId: session.user.id,
       userName: session.user.name || session.user.email || 'Someone',
     })
 
-    // Clear existing timeout
+    // Auto-stop after inactivity
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current)
     }
 
-    // Stop typing after 5 seconds of inactivity
     typingTimeoutRef.current = setTimeout(() => {
       socket.emit('typing:stop', {
         roomId,
         userId: session.user.id,
       })
-    }, 5000)
+    }, 4000)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -879,7 +893,7 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
         <div
           ref={messagesContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-6 pt-6 pb-20 space-y-4 min-h-0"
+          className="relative flex-1 overflow-y-auto px-6 pt-6 space-y-4 min-h-0"
           style={{ 
             scrollBehavior: 'auto',
             visibility: isRestoringScroll ? 'hidden' : 'visible'
@@ -977,23 +991,8 @@ export function ChatRoom({ roomId, roomName }: ChatRoomProps) {
                 )
               })
             })()}
-            
-            {/* Typing indicator - in scroll flow (not absolute) */}
-            {typingUsers.size > 0 && (
-              <div className="mt-2 mb-2">
-                <div className="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800/95 rounded-lg px-3 py-1.5">
-                  <div className="flex gap-0.5">
-                    <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                  <span>
-                    {Array.from(typingUsers.values())[0]} is typing...
-                  </span>
-                </div>
-              </div>
-            )}
-            
+            {/* Typing row (part of scroll flow) */}
+            <TypingRow users={[...typingUsers.values()]} />
             <div ref={messagesEndRef} />
           </>
         )}
